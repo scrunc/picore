@@ -1,0 +1,11 @@
+name: PiCore
+version: 1.0.0
+main: org.illustro.picore.PiCore
+api-version: '1.21'
+author: illustro
+description: Universal core framework and spine for all BMS custom plugins.
+commands:
+  picore:
+    description: PiCore system commands and status.
+    aliases: [pic]
+    permission: picore.admin

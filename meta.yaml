@@ -1,0 +1,20 @@
+name: picore
+license: open
+source: source/
+status: in-progress
+group: org.illustro.picore
+depends: []
+softdepends: [PlaceholderAPI, PacketEvents]
+authors: [illustro, servereer]
+description: |
+  PiCore is the universal foundation and central core plugin for all BMS custom plugins:
+  • Universal declarative Menu Engine (PiMenu, PiButton, PiPaginatedMenu)
+  • 3-Tier Anti-Theft & Exploit Guard (PiMenuGuard) securing all GUI inventories
+  • Shared Item Provenance, Audit Ledger & Handoff tracking components
+  • Common Text, Formatting, and Persistent Data Container utilities
+  Shared across: Koth, PixelProfiler, MachineConstruct, MorphicGames, MorphicTrials, PixelUtilities.
+shape: single-plugin
+build:
+  system: maven
+  java: 21
+  command: mvn clean package
