@@ -26,3 +26,4 @@ public final class PiCoreAPI {
         return PiPaginatedMenu.create(titleTemplate, converter);
     }
 }
+

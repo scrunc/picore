@@ -36,3 +36,4 @@ PiCore provides the unified architecture for all custom plugins across the serve
 mvn clean package
 ```
 Generates `PiCore.jar`.
+

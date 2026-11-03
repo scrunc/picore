@@ -9,3 +9,4 @@ commands:
     description: PiCore system commands and status.
     aliases: [pic]
     permission: picore.admin
+

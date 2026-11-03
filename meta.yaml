@@ -18,3 +18,4 @@ build:
   system: maven
   java: 21
   command: mvn clean package
+

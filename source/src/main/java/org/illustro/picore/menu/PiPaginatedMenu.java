@@ -108,3 +108,4 @@ public class PiPaginatedMenu<T> {
         menu.open(player);
     }
 }
+

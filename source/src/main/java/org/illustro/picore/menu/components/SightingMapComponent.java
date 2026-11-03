@@ -48,3 +48,4 @@ public class SightingMapComponent {
                 "&8Spatial sighting ledger");
     }
 }
+
