@@ -42,16 +42,16 @@ public final class PiCoreBootstrap {
         PluginManager pm = Bukkit.getPluginManager();
         Plugin existing = pm.getPlugin("PiCore");
 
-        if (existing != null && existing.isEnabled()) {
+        if (existing != null) {
             return checkCompatibility(caller, existing.getDescription().getVersion(), minRequiredVersion);
         }
 
         File pluginsDir = caller.getDataFolder().getParentFile();
         File coreJar = new File(pluginsDir, CORE_JAR_NAME);
 
-        // 1. If PiCore.jar already exists on disk, load and enable it
+        // 1. If PiCore.jar already exists on disk, the server discovered it or is loading it
         if (coreJar.exists() && coreJar.length() > 0) {
-            return loadAndEnable(caller, coreJar, minRequiredVersion);
+            return true;
         }
 
         // 2. Coordinated Auto-Download (Handles 7+ plugins booting simultaneously)
