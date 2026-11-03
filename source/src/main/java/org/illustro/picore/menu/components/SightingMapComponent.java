@@ -4,8 +4,9 @@ import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.illustro.picore.menu.PiButton;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Universal component for displaying spatial container sightings in PiCore.
@@ -13,7 +14,8 @@ import java.util.Date;
  */
 public class SightingMapComponent {
 
-    private static final SimpleDateFormat FMT = new SimpleDateFormat("MMM d, HH:mm");
+    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("MMM d, HH:mm")
+            .withZone(ZoneId.systemDefault());
 
     public record SightingRecord(
             long id,
@@ -38,14 +40,14 @@ public class SightingMapComponent {
 
         String containerName = record.containerType().replace('_', ' ');
         return PiButton.create(mat,
-                "&b" + containerName + " &8· &f" + record.locationDisplay(),
-                "&7Container Type: &f" + containerName,
-                "&7Coordinates: &f" + record.locationDisplay(),
-                "&7Visits Logged: &e" + record.totalVisits(),
-                "&7First Sighted: &f" + FMT.format(new Date(record.firstSeen())),
-                "&7Last Sighted: &f" + FMT.format(new Date(record.lastSeen())),
-                " ",
-                "&8Spatial sighting ledger");
+            "&b" + containerName + " &8· &f" + record.locationDisplay(),
+            "&7Container Type: &f" + containerName,
+            "&7Coordinates: &f" + record.locationDisplay(),
+            "&7Visits Logged: &e" + record.totalVisits(),
+            "&7First Sighted: &f" + FMT.format(Instant.ofEpochMilli(record.firstSeen())),
+            "&7Last Sighted: &f" + FMT.format(Instant.ofEpochMilli(record.lastSeen())),
+            " ",
+            "&8Spatial sighting ledger");
     }
 }
 

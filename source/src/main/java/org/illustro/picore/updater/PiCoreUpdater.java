@@ -67,6 +67,7 @@ public class PiCoreUpdater {
 
     /**
      * Checks GitHub for PiCore updates and queries the ecosystem.json manifest for client plugin releases.
+     * Remote fetching occurs asynchronously; parsing and registry registration execute safely on the main thread.
      */
     public void checkAllAsync(Consumer<Boolean> callback) {
         if (isChecking) {
@@ -76,67 +77,77 @@ public class PiCoreUpdater {
 
         isChecking = true;
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            String coreJson = null;
+            String manifestJson = null;
+
             try {
-                // 1. Check PiCore's own latest release on GitHub
-                checkCoreRelease();
+                // 1. Fetch remote release & manifest HTTP responses asynchronously
+                coreJson = fetchUrl(CORE_REPO_URL());
+                manifestJson = fetchUrl(MANIFEST_URL);
 
-                // 2. Fetch public ecosystem.json manifest for all client plugins
-                fetchEcosystemManifest();
+                // Fallback to bundled ecosystem.json if remote is unreachable
+                if (manifestJson == null || manifestJson.trim().isEmpty()) {
+                    java.io.InputStream in = plugin.getResource("ecosystem.json");
+                    if (in != null) {
+                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                            StringBuilder sb = new StringBuilder();
+                            String line;
+                            while ((line = reader.readLine()) != null) sb.append(line);
+                            manifestJson = sb.toString();
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.WARNING, "[PiCoreUpdater] Error while fetching remote updates: " + e.getMessage(), e);
+            }
 
-                // 3. Recalculate all compatibility statuses
-                UpdateRegistry.getInstance().recalculateAll();
-                lastCheckedTime = System.currentTimeMillis();
+            final String finalCoreJson = coreJson;
+            final String finalManifestJson = manifestJson;
 
-                Bukkit.getScheduler().runTask(plugin, () -> {
+            // 2. Process results on the MAIN thread to ensure 100% Bukkit API & Console thread safety
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                try {
+                    // Process PiCore release info
+                    parseCoreRelease(finalCoreJson);
+
+                    // Process Ecosystem manifest and auto-discover plugins
+                    processManifest(finalManifestJson);
+
+                    // Recalculate compatibility statuses
+                    UpdateRegistry.getInstance().recalculateAll();
+                    lastCheckedTime = System.currentTimeMillis();
+
                     isChecking = false;
                     logSummary();
                     if (callback != null) callback.accept(true);
-                });
-            } catch (Exception e) {
-                plugin.getLogger().log(Level.WARNING, "[PiCoreUpdater] Error while checking updates: " + e.getMessage(), e);
-                Bukkit.getScheduler().runTask(plugin, () -> {
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "[PiCoreUpdater] Error applying updates: " + e.getMessage(), e);
                     isChecking = false;
                     if (callback != null) callback.accept(false);
-                });
-            }
+                }
+            });
         });
     }
 
-    private void checkCoreRelease() {
+    private void parseCoreRelease(String json) {
+        if (json == null || json.trim().isEmpty()) return;
         try {
-            String json = fetchUrl(CORE_REPO_URL());
-            if (json != null) {
-                String tag = extractTag(json);
-                if (tag != null) {
-                    this.latestCoreVersion = tag.replaceFirst("^[vV]", "");
-                    this.coreReleaseNotes = extractBody(json);
-                    int cmp = ClientRegistration.compareVersions(this.latestCoreVersion, plugin.getDescription().getVersion());
-                    this.coreUpdateAvailable = (cmp > 0);
-                }
+            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            if (obj.has("tag_name") && !obj.get("tag_name").isJsonNull()) {
+                this.latestCoreVersion = obj.get("tag_name").getAsString().replaceFirst("^[vV]", "");
+                this.coreReleaseNotes = obj.has("body") && !obj.get("body").isJsonNull() ? obj.get("body").getAsString() : "";
+                int cmp = ClientRegistration.compareVersions(this.latestCoreVersion, plugin.getDescription().getVersion());
+                this.coreUpdateAvailable = (cmp > 0);
             }
         } catch (Exception ignored) { }
     }
 
-    private void fetchEcosystemManifest() {
+    private void processManifest(String manifestJson) {
+        if (manifestJson == null || manifestJson.trim().isEmpty()) return;
         try {
-            String manifestJson = fetchUrl(MANIFEST_URL);
-            if (manifestJson == null || manifestJson.trim().isEmpty()) {
-                // Fallback to bundled ecosystem.json if remote is not reachable
-                java.io.InputStream in = plugin.getResource("ecosystem.json");
-                if (in != null) {
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                        StringBuilder sb = new StringBuilder();
-                        String line;
-                        while ((line = reader.readLine()) != null) sb.append(line);
-                        manifestJson = sb.toString();
-                    }
-                }
-            }
-            if (manifestJson == null || manifestJson.trim().isEmpty()) return;
-
             JsonObject root = JsonParser.parseString(manifestJson).getAsJsonObject();
 
-            // Auto-discover any active server plugins that match entries in the ecosystem manifest
+            // Auto-discover active server plugins that match entries in the ecosystem manifest (Thread Safe on Main Thread)
             for (org.bukkit.plugin.Plugin p : Bukkit.getPluginManager().getPlugins()) {
                 if (p == null || p.equals(plugin)) continue;
                 String matchedKey = findMatchingKey(root, p.getName());
@@ -282,20 +293,5 @@ public class PiCoreUpdater {
         } finally {
             if (conn != null) conn.disconnect();
         }
-    }
-
-    private String extractTag(String json) {
-        Pattern pattern = Pattern.compile("\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
-        Matcher matcher = pattern.matcher(json);
-        return matcher.find() ? matcher.group(1) : null;
-    }
-
-    private String extractBody(String json) {
-        Pattern pattern = Pattern.compile("\"body\"\\s*:\\s*\"([^\"]*)\"");
-        Matcher matcher = pattern.matcher(json);
-        if (matcher.find()) {
-            return matcher.group(1).replace("\\r\\n", "\n").replace("\\n", "\n");
-        }
-        return "";
     }
 }

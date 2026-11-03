@@ -27,7 +27,7 @@
     "notes": "Minigame arena sync and PiCore menu framework support.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   },
-  "Morphictrials": {
+  "MorphicTrials": {
     "latest": "1.2.0",
     "min_core_version": "1.0.0",
     "mandatory": false,

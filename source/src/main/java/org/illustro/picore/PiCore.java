@@ -13,11 +13,15 @@ import org.illustro.picore.updater.PiCoreUpdater;
 import org.illustro.picore.updater.UpdateRegistry;
 import org.illustro.picore.updater.gui.PiCoreUpdateGUI;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * PiCore - Central Core & Unified Framework.
  * Powers menus, security guards, update coordination, and shared services across BMS plugins.
  */
-public class PiCore extends JavaPlugin implements CommandExecutor {
+public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor {
 
     private static PiCore instance;
 
@@ -49,15 +53,28 @@ public class PiCore extends JavaPlugin implements CommandExecutor {
         // 2. Register Server-wide 3-Tier Menu Security Guard
         getServer().getPluginManager().registerEvents(new PiMenuGuard(), this);
 
-        // 3. Register Commands
+        // 3. Register Commands & Tab Completer
         if (getCommand("picore") != null) {
             getCommand("picore").setExecutor(this);
+            getCommand("picore").setTabCompleter(this);
         }
 
-        // 4. Initial async release & compatibility scan after server warms up (10s)
-        Bukkit.getScheduler().runTaskLater(this, () -> {
-            updater.checkAllAsync(null);
-        }, 200L);
+        // 4. Initial async release & compatibility scan based on config
+        boolean autoCheck = getConfig().getBoolean("updater.auto-check-on-boot", true);
+        int intervalMinutes = getConfig().getInt("updater.check-interval-minutes", 360);
+
+        if (autoCheck) {
+            Bukkit.getScheduler().runTaskLater(this, () -> {
+                updater.checkAllAsync(null);
+            }, 200L);
+
+            if (intervalMinutes > 0) {
+                long intervalTicks = intervalMinutes * 60L * 20L;
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    updater.checkAllAsync(null);
+                }, intervalTicks, intervalTicks);
+            }
+        }
 
         // 5. Alert administrators on join if updates are available
         getServer().getPluginManager().registerEvents(new org.bukkit.event.Listener() {
@@ -155,5 +172,19 @@ public class PiCore extends JavaPlugin implements CommandExecutor {
         if (sender instanceof Player) {
             sender.sendMessage(ChatColor.GRAY + "Type " + ChatColor.YELLOW + "/picore gui" + ChatColor.GRAY + " for the interactive visual dashboard.");
         }
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 1) {
+            List<String> subs = List.of("status", "gui", "check", "update");
+            String prefix = args[0].toLowerCase();
+            List<String> matched = new ArrayList<>();
+            for (String s : subs) {
+                if (s.startsWith(prefix)) matched.add(s);
+            }
+            return matched;
+        }
+        return Collections.emptyList();
     }
 }

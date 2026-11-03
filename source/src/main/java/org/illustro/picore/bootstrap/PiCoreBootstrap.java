@@ -26,7 +26,8 @@ public final class PiCoreBootstrap {
 
     private static final String DEFAULT_REPO = "scrunc/picore";
     private static final String CORE_JAR_NAME = "PiCore.jar";
-    private static final Object LOCK = new Object();
+    // Using an interned String object ensures synchronization across distinct PluginClassLoaders
+    private static final String LOCK = "PICORE_BOOTSTRAP_LOCK".intern();
     private static volatile boolean IS_DOWNLOADING = false;
 
     private PiCoreBootstrap() { }

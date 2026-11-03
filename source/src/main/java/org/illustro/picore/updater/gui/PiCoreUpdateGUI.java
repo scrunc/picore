@@ -14,15 +14,19 @@ import org.illustro.picore.updater.PiCoreUpdater;
 import org.illustro.picore.updater.UpdateRegistry;
 import org.illustro.picore.utils.ItemBuilder;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Interactive In-Game Ecosystem & Update Status GUI.
  */
 public class PiCoreUpdateGUI {
 
-    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+            .withZone(ZoneId.systemDefault());
 
     public static void open(Player player) {
         PiCore core = PiCore.getInstance();
@@ -42,7 +46,7 @@ public class PiCoreUpdateGUI {
         String coreTitle = ChatColor.AQUA + "" + ChatColor.BOLD + "PiCore Framework " + (coreUpdate ? ChatColor.GOLD + "(Update Available!)" : ChatColor.GREEN + "(Up to Date)");
 
         String lastCheck = (updater.getLastCheckedTime() > 0)
-                ? DATE_FORMAT.format(new Date(updater.getLastCheckedTime()))
+                ? DATE_FORMAT.format(Instant.ofEpochMilli(updater.getLastCheckedTime()))
                 : "Not checked yet";
 
         ItemStack coreItem = ItemBuilder.of(coreMat)
@@ -108,13 +112,17 @@ public class PiCoreUpdateGUI {
             if (client.getLatestReleaseNotes() != null && !client.getLatestReleaseNotes().isEmpty()) {
                 lore.add("");
                 lore.add(ChatColor.YELLOW + "Release Notes:");
-                lore.add(ChatColor.GRAY + "• " + client.getLatestReleaseNotes());
+                for (String line : wrapText(client.getLatestReleaseNotes(), 42)) {
+                    lore.add(ChatColor.GRAY + "• " + line);
+                }
             }
 
             if (client.getStatus() == CompatibilityStatus.UPDATE_AVAILABLE || client.getStatus().isCritical()) {
                 lore.add("");
                 lore.add(ChatColor.GOLD + "Download Notice:");
-                lore.add(ChatColor.WHITE + client.getDownloadNotice());
+                for (String line : wrapText(client.getDownloadNotice(), 42)) {
+                    lore.add(ChatColor.WHITE + line);
+                }
             }
 
             lore.add("");
@@ -200,5 +208,24 @@ public class PiCoreUpdateGUI {
         menu.button(49, closeBtn);
 
         menu.open(player);
+    }
+
+    private static List<String> wrapText(String text, int maxLineLen) {
+        List<String> result = new ArrayList<>();
+        if (text == null || text.isEmpty()) return result;
+        String[] lines = text.split("\\R");
+        for (String raw : lines) {
+            String[] words = raw.split(" ");
+            StringBuilder sb = new StringBuilder();
+            for (String w : words) {
+                if (sb.length() + w.length() + 1 > maxLineLen) {
+                    if (sb.length() > 0) result.add(sb.toString().trim());
+                    sb = new StringBuilder();
+                }
+                sb.append(w).append(" ");
+            }
+            if (sb.length() > 0) result.add(sb.toString().trim());
+        }
+        return result;
     }
 }

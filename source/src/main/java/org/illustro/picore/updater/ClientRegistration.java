@@ -120,17 +120,27 @@ public class ClientRegistration {
     }
 
     /**
-     * SemVer / component-based version comparison.
+     * SemVer / component-based version comparison compliant with SemVer 2.0.0.
+     * Compares core numerical segments (major.minor.patch) and pre-release identifiers.
      */
     public static int compareVersions(String v1, String v2) {
         if (v1 == null) return (v2 == null) ? 0 : -1;
         if (v2 == null) return 1;
 
-        String clean1 = v1.trim().replaceFirst("^[vV]", "").split("[-_]")[0];
-        String clean2 = v2.trim().replaceFirst("^[vV]", "").split("[-_]")[0];
+        // Clean leading 'v' or 'V' and strip build metadata after '+'
+        String s1 = v1.trim().replaceFirst("^[vV]", "").split("\\+")[0];
+        String s2 = v2.trim().replaceFirst("^[vV]", "").split("\\+")[0];
 
-        String[] parts1 = clean1.split("\\.");
-        String[] parts2 = clean2.split("\\.");
+        String[] split1 = s1.split("-", 2);
+        String[] split2 = s2.split("-", 2);
+
+        String core1 = split1[0];
+        String core2 = split2[0];
+        String pre1 = split1.length > 1 ? split1[1] : "";
+        String pre2 = split2.length > 1 ? split2[1] : "";
+
+        String[] parts1 = core1.split("\\.");
+        String[] parts2 = core2.split("\\.");
 
         int length = Math.max(parts1.length, parts2.length);
         for (int i = 0; i < length; i++) {
@@ -138,6 +148,41 @@ public class ClientRegistration {
             int num2 = (i < parts2.length) ? parseSegment(parts2[i]) : 0;
             if (num1 != num2) {
                 return Integer.compare(num1, num2);
+            }
+        }
+
+        // Core versions are equal. SemVer rule:
+        // A version without a pre-release tag has higher precedence than with a pre-release tag.
+        // e.g. "0.9.1" > "0.9.1-alpha.1"
+        if (pre1.isEmpty() && !pre2.isEmpty()) return 1;
+        if (!pre1.isEmpty() && pre2.isEmpty()) return -1;
+        if (pre1.isEmpty() && pre2.isEmpty()) return 0;
+
+        // Both have pre-release tags: compare identifiers (e.g. "alpha.2" vs "alpha.1")
+        return comparePreRelease(pre1, pre2);
+    }
+
+    private static int comparePreRelease(String pre1, String pre2) {
+        String[] p1 = pre1.split("\\.");
+        String[] p2 = pre2.split("\\.");
+        int len = Math.max(p1.length, p2.length);
+        for (int i = 0; i < len; i++) {
+            if (i >= p1.length) return -1;
+            if (i >= p2.length) return 1;
+            String seg1 = p1[i];
+            String seg2 = p2[i];
+            boolean num1 = seg1.matches("\\d+");
+            boolean num2 = seg2.matches("\\d+");
+            if (num1 && num2) {
+                int cmp = Integer.compare(Integer.parseInt(seg1), Integer.parseInt(seg2));
+                if (cmp != 0) return cmp;
+            } else if (num1) {
+                return -1;
+            } else if (num2) {
+                return 1;
+            } else {
+                int cmp = seg1.compareToIgnoreCase(seg2);
+                if (cmp != 0) return cmp;
             }
         }
         return 0;

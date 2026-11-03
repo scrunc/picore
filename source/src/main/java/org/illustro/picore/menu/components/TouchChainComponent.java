@@ -6,9 +6,10 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.illustro.picore.menu.PiButton;
 
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -17,7 +18,8 @@ import java.util.List;
  */
 public class TouchChainComponent {
 
-    private static final SimpleDateFormat FMT = new SimpleDateFormat("MMM d, HH:mm:ss");
+    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("MMM d, HH:mm:ss")
+            .withZone(ZoneId.systemDefault());
 
     public record TouchRecord(
             long id,
@@ -35,7 +37,7 @@ public class TouchChainComponent {
         }
 
         public String formattedTime() {
-            return FMT.format(new Date(timestamp));
+            return FMT.format(Instant.ofEpochMilli(timestamp));
         }
     }
 
@@ -66,10 +68,16 @@ public class TouchChainComponent {
             meta.setLore(lore.stream().map(s -> ChatColor.translateAlternateColorCodes('&', s)).toList());
             try {
                 if (record.playerUuid() != null && !record.playerUuid().isBlank()) {
+                    java.util.UUID uid = java.util.UUID.fromString(record.playerUuid());
+                    com.destroystokyo.paper.profile.PlayerProfile profile = org.bukkit.Bukkit.createProfile(uid, record.playerName());
+                    meta.setPlayerProfile(profile);
+                }
+            } catch (Throwable t) {
+                try {
                     org.bukkit.OfflinePlayer op = org.bukkit.Bukkit.getOfflinePlayer(java.util.UUID.fromString(record.playerUuid()));
                     meta.setOwningPlayer(op);
-                }
-            } catch (Exception ignored) { }
+                } catch (Exception ignored) { }
+            }
 
             head.setItemMeta(meta);
         }

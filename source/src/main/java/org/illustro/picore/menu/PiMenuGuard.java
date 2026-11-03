@@ -58,8 +58,20 @@ public class PiMenuGuard implements Listener {
     public void onBackstopPdcCheck(InventoryClickEvent e) {
         ItemStack current = e.getCurrentItem();
         ItemStack cursor = e.getCursor();
+        boolean hotbarSuspicious = false;
 
-        if (isStamped(current) || isStamped(cursor)) {
+        if (e.getWhoClicked() instanceof Player p) {
+            if (e.getHotbarButton() >= 0 && e.getHotbarButton() < 9) {
+                ItemStack hotbarItem = p.getInventory().getItem(e.getHotbarButton());
+                if (isStamped(hotbarItem)) hotbarSuspicious = true;
+            }
+            if (e.getClick() == org.bukkit.event.inventory.ClickType.SWAP_OFFHAND) {
+                ItemStack offhand = p.getInventory().getItemInOffHand();
+                if (isStamped(offhand)) hotbarSuspicious = true;
+            }
+        }
+
+        if (isStamped(current) || isStamped(cursor) || hotbarSuspicious) {
             e.setCancelled(true);
             if (e.getWhoClicked() instanceof Player p) {
                 sweepPlayerInventory(p);
