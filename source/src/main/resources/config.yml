@@ -1,0 +1,14 @@
+# PiCore Configuration
+# Central core framework for BMS plugins
+
+updater:
+  # Optional: GitHub Personal Access Token (PAT) for private repositories or avoiding rate limits
+  # Can also be set via system environment variable GITHUB_TOKEN or plugins/picore.token
+  github-token: ""
+
+  # Automatically query GitHub on startup
+  auto-check-on-boot: true
+
+  # Check interval in minutes (default: 6 hours)
+  check-interval-minutes: 360
+

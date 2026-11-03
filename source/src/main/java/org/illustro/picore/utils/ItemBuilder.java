@@ -65,7 +65,11 @@ public class ItemBuilder {
     }
 
     public ItemBuilder glow() {
-        if (meta != null) {
+        return glow(true);
+    }
+
+    public ItemBuilder glow(boolean active) {
+        if (meta != null && active) {
             meta.addEnchant(Enchantment.UNBREAKING, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         }
