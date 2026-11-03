@@ -7,14 +7,14 @@
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   },
   "Koth": {
-    "latest": "1.0.0",
+    "latest": "2.1.0",
     "min_core_version": "1.0.0",
     "mandatory": false,
-    "notes": "Initial release with PiCore universal menu integration.",
+    "notes": "PiCore universal menu integration and stability updates.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   },
   "MachineConstruct": {
-    "latest": "1.0.0",
+    "latest": "0.1.0",
     "min_core_version": "1.0.0",
     "mandatory": false,
     "notes": "Performance optimizations and PiCore menu guard integration.",
@@ -28,14 +28,14 @@
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   },
   "Morphictrials": {
-    "latest": "1.0.0",
+    "latest": "1.2.0",
     "min_core_version": "1.0.0",
     "mandatory": false,
     "notes": "Trial dungeon boss mechanics and loot table safety checks.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   },
   "PixelUtilities": {
-    "latest": "1.0.0",
+    "latest": "0.1.0",
     "min_core_version": "1.0.0",
     "mandatory": false,
     "notes": "Utility helpers, hex chat formatting, and performance patches.",

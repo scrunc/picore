@@ -136,6 +136,17 @@ public class PiCoreUpdater {
 
             JsonObject root = JsonParser.parseString(manifestJson).getAsJsonObject();
 
+            // Auto-discover any active server plugins that match entries in the ecosystem manifest
+            for (org.bukkit.plugin.Plugin p : Bukkit.getPluginManager().getPlugins()) {
+                if (p == null || p.equals(plugin)) continue;
+                String matchedKey = findMatchingKey(root, p.getName());
+                if (matchedKey != null && UpdateRegistry.getInstance().getClient(p.getName()) == null) {
+                    JsonObject data = root.getAsJsonObject(matchedKey);
+                    String minCore = data.has("min_core_version") ? data.get("min_core_version").getAsString() : "1.0.0";
+                    UpdateRegistry.getInstance().register(p, minCore, null);
+                }
+            }
+
             for (ClientRegistration client : UpdateRegistry.getInstance().getAllClients()) {
                 String key = findMatchingKey(root, client.getClientName());
                 if (key != null) {
