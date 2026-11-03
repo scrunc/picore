@@ -59,6 +59,18 @@ public class PiCore extends JavaPlugin implements CommandExecutor {
             updater.checkAllAsync(null);
         }, 200L);
 
+        // 5. Alert administrators on join if updates are available
+        getServer().getPluginManager().registerEvents(new org.bukkit.event.Listener() {
+            @org.bukkit.event.EventHandler
+            public void onPlayerJoin(org.bukkit.event.player.PlayerJoinEvent e) {
+                Bukkit.getScheduler().runTaskLater(PiCore.this, () -> {
+                    if (e.getPlayer().isOnline()) {
+                        updater.alertAdminIfOutdated(e.getPlayer());
+                    }
+                }, 40L);
+            }
+        }, this);
+
         getLogger().info("=========================================");
         getLogger().info("       PiCore v" + getDescription().getVersion() + " (Unified Spine)     ");
         getLogger().info("   Menu Guard, Auto-Updater & Health OK  ");
@@ -133,9 +145,10 @@ public class PiCore extends JavaPlugin implements CommandExecutor {
             sender.sendMessage(ChatColor.DARK_GRAY + "  (No downstream plugins registered yet)");
         } else {
             for (ClientRegistration c : updateRegistry.getAllClients()) {
+                String latest = (c.getLatestReleaseVersion() != null) ? ChatColor.GRAY + " (Latest: " + ChatColor.GOLD + "v" + c.getLatestReleaseVersion() + ChatColor.GRAY + ")" : "";
                 String req = ChatColor.GRAY + "(Req Core: " + ChatColor.AQUA + "v" + c.getMinCoreVersion() + ChatColor.GRAY + ")";
                 sender.sendMessage(ChatColor.DARK_GRAY + "  • " + ChatColor.YELLOW + c.getClientName()
-                        + ChatColor.WHITE + " v" + c.getInstalledVersion() + " " + req + " ➔ " + c.getStatus().getBadge());
+                        + ChatColor.WHITE + " v" + c.getInstalledVersion() + latest + " " + req + " ➔ " + c.getStatus().getBadge());
             }
         }
 

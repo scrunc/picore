@@ -1,0 +1,44 @@
+{
+  "PixelProfiler": {
+    "latest": "0.9.1-alpha.1",
+    "min_core_version": "1.0.0",
+    "mandatory": false,
+    "notes": "Added ecosystem update alerts, tab completion polish, and menu safety patches.",
+    "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
+  },
+  "Koth": {
+    "latest": "1.0.0",
+    "min_core_version": "1.0.0",
+    "mandatory": false,
+    "notes": "Initial release with PiCore universal menu integration.",
+    "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
+  },
+  "MachineConstruct": {
+    "latest": "1.0.0",
+    "min_core_version": "1.0.0",
+    "mandatory": false,
+    "notes": "Performance optimizations and PiCore menu guard integration.",
+    "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
+  },
+  "MorphicGames": {
+    "latest": "1.0.0",
+    "min_core_version": "1.0.0",
+    "mandatory": false,
+    "notes": "Minigame arena sync and PiCore menu framework support.",
+    "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
+  },
+  "Morphictrials": {
+    "latest": "1.0.0",
+    "min_core_version": "1.0.0",
+    "mandatory": false,
+    "notes": "Trial dungeon boss mechanics and loot table safety checks.",
+    "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
+  },
+  "PixelUtilities": {
+    "latest": "1.0.0",
+    "min_core_version": "1.0.0",
+    "mandatory": false,
+    "notes": "Utility helpers, hex chat formatting, and performance patches.",
+    "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
+  }
+}

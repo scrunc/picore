@@ -15,6 +15,8 @@ public class ClientRegistration {
 
     private String latestReleaseVersion;
     private String latestReleaseNotes;
+    private String downloadNotice;
+    private boolean mandatory = false;
     private CompatibilityStatus status = CompatibilityStatus.UNKNOWN;
     private long lastCheckedMillis = 0;
 
@@ -62,6 +64,22 @@ public class ClientRegistration {
         this.latestReleaseNotes = latestReleaseNotes;
     }
 
+    public String getDownloadNotice() {
+        return downloadNotice != null ? downloadNotice : "Download from your customer portal / DevsDiary.";
+    }
+
+    public void setDownloadNotice(String downloadNotice) {
+        this.downloadNotice = downloadNotice;
+    }
+
+    public boolean isMandatory() {
+        return mandatory;
+    }
+
+    public void setMandatory(boolean mandatory) {
+        this.mandatory = mandatory;
+    }
+
     public CompatibilityStatus getStatus() {
         return status;
     }
@@ -88,35 +106,26 @@ public class ClientRegistration {
             return;
         }
 
-        // 2. Is there a newer release of this plugin on GitHub?
+        // 2. Is there a newer release of this plugin?
         if (latestReleaseVersion != null && !latestReleaseVersion.isEmpty()) {
             if (compareVersions(latestReleaseVersion, installedVersion) > 0) {
-                this.status = CompatibilityStatus.UPDATE_AVAILABLE;
+                this.status = mandatory ? CompatibilityStatus.MUST_UPDATE_PLUGIN : CompatibilityStatus.UPDATE_AVAILABLE;
                 return;
             }
             this.status = CompatibilityStatus.UP_TO_DATE;
             return;
         }
 
-        if (githubRepo == null || githubRepo.isEmpty()) {
-            this.status = CompatibilityStatus.UP_TO_DATE;
-        } else {
-            this.status = CompatibilityStatus.UNKNOWN;
-        }
+        this.status = CompatibilityStatus.UP_TO_DATE;
     }
 
     /**
      * SemVer / component-based version comparison.
-     * Returns:
-     *   > 0 if v1 > v2
-     *   < 0 if v1 < v2
-     *   0 if equal
      */
     public static int compareVersions(String v1, String v2) {
         if (v1 == null) return (v2 == null) ? 0 : -1;
         if (v2 == null) return 1;
 
-        // Clean prefixes e.g. "v1.0.0" -> "1.0.0"
         String clean1 = v1.trim().replaceFirst("^[vV]", "").split("[-_]")[0];
         String clean2 = v2.trim().replaceFirst("^[vV]", "").split("[-_]")[0];
 
@@ -136,7 +145,6 @@ public class ClientRegistration {
 
     private static int parseSegment(String part) {
         try {
-            // Strip any non-digit suffix (e.g. "0-alpha")
             String digits = part.replaceAll("[^0-9]", "");
             return digits.isEmpty() ? 0 : Integer.parseInt(digits);
         } catch (Exception ignored) {
@@ -144,4 +152,3 @@ public class ClientRegistration {
         }
     }
 }
-

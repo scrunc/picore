@@ -97,18 +97,32 @@ public class PiCoreUpdateGUI {
 
             String latest = client.getLatestReleaseVersion() != null ? "v" + client.getLatestReleaseVersion() : "Unknown";
 
+            java.util.List<String> lore = new java.util.ArrayList<>();
+            lore.add(ChatColor.DARK_GRAY + "Registered BMS Module");
+            lore.add("");
+            lore.add(ChatColor.GRAY + "Status:       " + client.getStatus().getBadge());
+            lore.add(ChatColor.GRAY + "Installed:    " + ChatColor.WHITE + "v" + client.getInstalledVersion());
+            lore.add(ChatColor.GRAY + "Req Core:     " + ChatColor.AQUA + "v" + client.getMinCoreVersion());
+            lore.add(ChatColor.GRAY + "Latest Avail: " + ChatColor.YELLOW + latest);
+
+            if (client.getLatestReleaseNotes() != null && !client.getLatestReleaseNotes().isEmpty()) {
+                lore.add("");
+                lore.add(ChatColor.YELLOW + "Release Notes:");
+                lore.add(ChatColor.GRAY + "• " + client.getLatestReleaseNotes());
+            }
+
+            if (client.getStatus() == CompatibilityStatus.UPDATE_AVAILABLE || client.getStatus().isCritical()) {
+                lore.add("");
+                lore.add(ChatColor.GOLD + "Download Notice:");
+                lore.add(ChatColor.WHITE + client.getDownloadNotice());
+            }
+
+            lore.add("");
+            lore.add(ChatColor.ITALIC + "" + ChatColor.DARK_GRAY + client.getStatus().getDescription());
+
             ItemStack clientItem = ItemBuilder.of(mat)
                     .name(ChatColor.GOLD + "" + ChatColor.BOLD + client.getClientName())
-                    .lore(
-                            ChatColor.DARK_GRAY + "Registered BMS Module",
-                            "",
-                            ChatColor.GRAY + "Status:       " + client.getStatus().getBadge(),
-                            ChatColor.GRAY + "Installed:    " + ChatColor.WHITE + "v" + client.getInstalledVersion(),
-                            ChatColor.GRAY + "Req Core:     " + ChatColor.AQUA + "v" + client.getMinCoreVersion(),
-                            ChatColor.GRAY + "Latest Avail: " + ChatColor.YELLOW + latest,
-                            "",
-                            ChatColor.ITALIC + "" + ChatColor.DARK_GRAY + client.getStatus().getDescription()
-                    )
+                    .lore(lore)
                     .glow(client.getStatus().isCritical() || client.getStatus() == CompatibilityStatus.UPDATE_AVAILABLE)
                     .build();
 
