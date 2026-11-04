@@ -50,6 +50,14 @@ public class PiButton {
         return new PiButton(item);
     }
 
+    public static PiButton playerHead(java.util.UUID uuid, String playerName, String displayName, String... lore) {
+        return PiSkull.button(uuid, playerName, displayName, lore);
+    }
+
+    public static PiButton playerHead(String uuidStr, String playerName, String displayName, String... lore) {
+        return PiSkull.button(uuidStr, playerName, displayName, lore);
+    }
+
     public ItemStack getIcon() {
         return icon;
     }

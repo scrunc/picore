@@ -16,7 +16,8 @@ import java.util.function.Consumer;
 
 /**
  * Fluent builder for creating interactive inventory menus in PiCore.
- * Automatically marks buttons with PDC anti-theft stamps and handles slot mapping.
+ * Automatically marks buttons with PDC anti-theft stamps and handles slot
+ * mapping.
  */
 public class PiMenu {
 
@@ -58,6 +59,25 @@ public class PiMenu {
         return this;
     }
 
+    public PiMenu frame(Material glassPane) {
+        return fillBorder(pane(glassPane != null ? glassPane : Material.GRAY_STAINED_GLASS_PANE, " "));
+    }
+
+    public PiMenu fill(int[] slots, PiButton button) {
+        if (slots != null && button != null) {
+            for (int s : slots) {
+                if (s >= 0 && s < rows * 9 && !buttons.containsKey(s)) {
+                    buttons.put(s, button);
+                }
+            }
+        }
+        return this;
+    }
+
+    public PiMenu fill(int[] slots, ItemStack item) {
+        return fill(slots, PiButton.create(item));
+    }
+
     public PiMenu fill(ItemStack fillItem) {
         PiButton b = PiButton.create(fillItem);
         for (int i = 0; i < rows * 9; i++) {
@@ -74,7 +94,8 @@ public class PiMenu {
     }
 
     public void handleClose(Player player) {
-        if (onClose != null) onClose.accept(player);
+        if (onClose != null)
+            onClose.accept(player);
     }
 
     public PiButton getButton(int slot) {
@@ -104,7 +125,8 @@ public class PiMenu {
     }
 
     public static void stampPdc(ItemStack item) {
-        if (item == null || item.getType() == Material.AIR) return;
+        if (item == null || item.getType() == Material.AIR)
+            return;
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.getPersistentDataContainer().set(GUI_KEY, PersistentDataType.BYTE, (byte) 1);
@@ -113,7 +135,8 @@ public class PiMenu {
     }
 
     public static boolean hasPdcStamp(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return false;
+        if (item == null || !item.hasItemMeta())
+            return false;
         return item.getItemMeta().getPersistentDataContainer().has(GUI_KEY, PersistentDataType.BYTE);
     }
 
@@ -127,4 +150,3 @@ public class PiMenu {
         return item;
     }
 }
-

@@ -66,19 +66,7 @@ public class TouchChainComponent {
             }
 
             meta.setLore(lore.stream().map(s -> ChatColor.translateAlternateColorCodes('&', s)).toList());
-            try {
-                if (record.playerUuid() != null && !record.playerUuid().isBlank()) {
-                    java.util.UUID uid = java.util.UUID.fromString(record.playerUuid());
-                    com.destroystokyo.paper.profile.PlayerProfile profile = org.bukkit.Bukkit.createProfile(uid, record.playerName());
-                    meta.setPlayerProfile(profile);
-                }
-            } catch (Throwable t) {
-                try {
-                    org.bukkit.OfflinePlayer op = org.bukkit.Bukkit.getOfflinePlayer(java.util.UUID.fromString(record.playerUuid()));
-                    meta.setOwningPlayer(op);
-                } catch (Exception ignored) { }
-            }
-
+            org.illustro.picore.menu.PiSkull.apply(meta, record.playerUuid(), record.playerName());
             head.setItemMeta(meta);
         }
 

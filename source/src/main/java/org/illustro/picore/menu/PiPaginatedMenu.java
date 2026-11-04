@@ -1,35 +1,51 @@
 package org.illustro.picore.menu;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
  * Reusable paginated menu engine for PiCore.
  * Generates paged views with automated sticky navigation bars (Previous, Next, Close, Page Indicator).
+ * Supports both full unframed views and 6-row / 5-row framed border layouts via {@link PiLayout}.
  */
 public class PiPaginatedMenu<T> {
 
     private final String titleTemplate;
+    private final PiLayout layout;
     private final Function<T, PiButton> itemConverter;
     private final List<T> items = new ArrayList<>();
-    private final int itemsPerPage = 36; // Rows 1-4 for content, Row 5 for navigation
+    private final Map<Integer, PiButton> toolbarButtons = new HashMap<>();
+
+    private ItemStack borderItem = PiMenu.pane(Material.GRAY_STAINED_GLASS_PANE, " ");
+    private PiButton headerButton;
     private Consumer<Player> onReturn;
+    private BiConsumer<Player, Integer> onPageChange;
 
     public PiPaginatedMenu(String titleTemplate, Function<T, PiButton> itemConverter) {
+        this(titleTemplate, PiLayout.UNFRAMED_5ROW, itemConverter);
+    }
+
+    public PiPaginatedMenu(String titleTemplate, PiLayout layout, Function<T, PiButton> itemConverter) {
         this.titleTemplate = titleTemplate;
+        this.layout = layout != null ? layout : PiLayout.UNFRAMED_5ROW;
         this.itemConverter = itemConverter;
     }
 
     public static <T> PiPaginatedMenu<T> create(String titleTemplate, Function<T, PiButton> itemConverter) {
         return new PiPaginatedMenu<>(titleTemplate, itemConverter);
+    }
+
+    public static <T> PiPaginatedMenu<T> create(String titleTemplate, PiLayout layout, Function<T, PiButton> itemConverter) {
+        return new PiPaginatedMenu<>(titleTemplate, layout, itemConverter);
     }
 
     public PiPaginatedMenu<T> items(List<T> items) {
@@ -38,14 +54,44 @@ public class PiPaginatedMenu<T> {
         return this;
     }
 
+    public PiPaginatedMenu<T> border(ItemStack borderItem) {
+        if (borderItem != null) this.borderItem = borderItem;
+        return this;
+    }
+
+    public PiPaginatedMenu<T> borderPane(Material glassPane) {
+        return border(PiMenu.pane(glassPane != null ? glassPane : Material.GRAY_STAINED_GLASS_PANE, " "));
+    }
+
+    public PiPaginatedMenu<T> header(PiButton headerButton) {
+        this.headerButton = headerButton;
+        return this;
+    }
+
+    public PiPaginatedMenu<T> toolbar(int slot, PiButton button) {
+        if (slot >= 0 && slot < layout.getSize()) {
+            this.toolbarButtons.put(slot, button);
+        }
+        return this;
+    }
+
     public PiPaginatedMenu<T> onReturn(Consumer<Player> handler) {
         this.onReturn = handler;
         return this;
     }
 
+    public PiPaginatedMenu<T> onPageChange(BiConsumer<Player, Integer> handler) {
+        this.onPageChange = handler;
+        return this;
+    }
+
+    public PiLayout getLayout() {
+        return layout;
+    }
+
     public int getMaxPages() {
         if (items.isEmpty()) return 1;
-        return (int) Math.ceil((double) items.size() / itemsPerPage);
+        return (int) Math.ceil((double) items.size() / layout.getPageCapacity());
     }
 
     public void open(Player player) {
@@ -60,52 +106,82 @@ public class PiPaginatedMenu<T> {
                 .replace("%page%", String.valueOf(currentPage + 1))
                 .replace("%max_pages%", String.valueOf(maxPages));
 
-        PiMenu menu = PiMenu.create(title, 5);
+        PiMenu menu = PiMenu.create(title, layout.getRows());
 
-        // Fill background border on row 5
-        ItemStack border = PiMenu.pane(Material.GRAY_STAINED_GLASS_PANE, " ");
-        for (int i = 36; i < 45; i++) {
-            menu.button(i, PiButton.create(border));
+        // 1. Frame or border filling
+        if (layout.isFramed()) {
+            PiGrid.frame(menu, borderItem);
+        } else {
+            // Fill bottom navigation row
+            int startSlot = (layout.getRows() - 1) * 9;
+            int endSlot = layout.getSize();
+            PiButton b = PiButton.create(borderItem);
+            for (int i = startSlot; i < endSlot; i++) {
+                menu.button(i, b);
+            }
         }
 
-        // Populate content slots 0 - 35
-        int startIdx = currentPage * itemsPerPage;
-        int endIdx = Math.min(startIdx + itemsPerPage, items.size());
+        // 2. Populate header if present
+        if (headerButton != null && layout.getHeaderSlot() >= 0) {
+            menu.button(layout.getHeaderSlot(), headerButton);
+        }
+
+        // 3. Populate content slots
+        int capacity = layout.getPageCapacity();
+        int startIdx = currentPage * capacity;
+        int endIdx = Math.min(startIdx + capacity, items.size());
+        int[] contentSlots = layout.getContentSlots();
 
         for (int i = startIdx; i < endIdx; i++) {
             T data = items.get(i);
             PiButton btn = itemConverter.apply(data);
             if (btn != null) {
-                menu.button(i - startIdx, btn);
+                int targetSlot = contentSlots[i - startIdx];
+                menu.button(targetSlot, btn);
             }
         }
 
-        // Navigation Controls
+        // 4. Navigation Controls
         if (currentPage > 0) {
-            menu.button(36, PiButton.create(Material.ARROW, "&e« Previous Page")
-                    .sound(Sound.UI_BUTTON_CLICK)
-                    .onClick((p, e) -> openPage(p, currentPage - 1)));
+            menu.button(layout.getPrevSlot(), PiButton.create(Material.ARROW, "&e« Previous Page")
+                    .onClick((p, e) -> {
+                        PiSound.page(p);
+                        if (onPageChange != null) onPageChange.accept(p, currentPage - 1);
+                        openPage(p, currentPage - 1);
+                    }));
         }
 
         if (currentPage < maxPages - 1) {
-            menu.button(44, PiButton.create(Material.ARROW, "&eNext Page »")
-                    .sound(Sound.UI_BUTTON_CLICK)
-                    .onClick((p, e) -> openPage(p, currentPage + 1)));
+            menu.button(layout.getNextSlot(), PiButton.create(Material.ARROW, "&eNext Page »")
+                    .onClick((p, e) -> {
+                        PiSound.page(p);
+                        if (onPageChange != null) onPageChange.accept(p, currentPage + 1);
+                        openPage(p, currentPage + 1);
+                    }));
         }
 
-        // Center Button: Page Indicator or Return
+        // 5. Center Button: Page Indicator or Return
         if (onReturn != null) {
-            menu.button(40, PiButton.create(Material.BARRIER, "&c« Back / Close")
-                    .sound(Sound.UI_BUTTON_CLICK)
-                    .onClick((p, e) -> onReturn.accept(p)));
+            menu.button(layout.getCenterSlot(), PiButton.create(Material.BARRIER, "&c« Back / Close")
+                    .onClick((p, e) -> {
+                        PiSound.click(p);
+                        onReturn.accept(p);
+                    }));
         } else {
-            menu.button(40, PiButton.create(Material.PAPER,
+            menu.button(layout.getCenterSlot(), PiButton.create(Material.PAPER,
                     "&7Page &f" + (currentPage + 1) + " &7of &f" + maxPages,
                     "&8Total items: " + items.size())
-                    .onClick((p, e) -> p.closeInventory()));
+                    .onClick((p, e) -> {
+                        PiSound.click(p);
+                        p.closeInventory();
+                    }));
+        }
+
+        // 6. Custom toolbar buttons on the border/chrome
+        for (Map.Entry<Integer, PiButton> entry : toolbarButtons.entrySet()) {
+            menu.button(entry.getKey(), entry.getValue());
         }
 
         menu.open(player);
     }
 }
-
