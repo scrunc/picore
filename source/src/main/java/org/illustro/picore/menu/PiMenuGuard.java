@@ -37,6 +37,7 @@ public class PiMenuGuard implements Listener {
     private static final Set<InventoryCloseEvent> PROCESSED_CLOSES =
             Collections.newSetFromMap(new WeakHashMap<>());
 
+    private static final long CLICK_DEBOUNCE_MS = 200L;
     private static final Map<UUID, Long> LAST_CLICK_MS = new ConcurrentHashMap<>();
     private static final Set<UUID> SUPPRESSED_CLOSES = ConcurrentHashMap.newKeySet();
 
@@ -71,7 +72,7 @@ public class PiMenuGuard implements Listener {
 
                 long now = System.currentTimeMillis();
                 Long last = LAST_CLICK_MS.get(player.getUniqueId());
-                if (last != null && now - last < 50L) {
+                if (last != null && now - last < CLICK_DEBOUNCE_MS) {
                     return;
                 }
                 LAST_CLICK_MS.put(player.getUniqueId(), now);
@@ -98,7 +99,7 @@ public class PiMenuGuard implements Listener {
                 if (menu.hasBottomClickHandler()) {
                     long now = System.currentTimeMillis();
                     Long last = LAST_CLICK_MS.get(player.getUniqueId());
-                    if (last != null && now - last < 50L) {
+                    if (last != null && now - last < CLICK_DEBOUNCE_MS) {
                         return;
                     }
                     LAST_CLICK_MS.put(player.getUniqueId(), now);
