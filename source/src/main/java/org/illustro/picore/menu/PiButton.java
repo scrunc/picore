@@ -3,8 +3,10 @@ package org.illustro.picore.menu;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -18,7 +20,8 @@ import java.util.function.Function;
 
 /**
  * Declarative button representing an interactive slot in a PiMenu.
- * Supports left, right, and shift clicks, sound feedback, permission checks, steppers, toggles, and cyclers.
+ * Supports left, right, and shift clicks, sound feedback, permission checks, steppers, toggles, cyclers,
+ * glow effects, custom model data, and fluent lore manipulation.
  */
 public class PiButton {
 
@@ -40,7 +43,7 @@ public class PiButton {
     }
 
     public static PiButton create(Material mat, String name, String... lore) {
-        ItemStack item = new ItemStack(mat);
+        ItemStack item = new ItemStack(mat != null ? mat : Material.STONE);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             if (name != null) meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
@@ -60,6 +63,10 @@ public class PiButton {
 
     public static PiButton playerHead(String uuidStr, String playerName, String displayName, String... lore) {
         return PiSkull.button(uuidStr, playerName, displayName, lore);
+    }
+
+    public static PiButton headFromTexture(String textureValue, String displayName, String... lore) {
+        return PiSkull.buttonFromTexture(textureValue, displayName, lore);
     }
 
     /**
@@ -97,7 +104,7 @@ public class PiButton {
                     if (newVal == current) {
                         PiSound.deny(p);
                     } else {
-                        PiSound.step(p);
+                        PiSound.step(p, delta > 0);
                         if (onChange != null) {
                             onChange.accept(newVal);
                         }
@@ -211,6 +218,78 @@ public class PiButton {
 
     public ItemStack getIcon() {
         return icon;
+    }
+
+    public PiButton name(String displayName) {
+        if (displayName != null) {
+            ItemMeta meta = icon.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', displayName));
+                icon.setItemMeta(meta);
+            }
+        }
+        return this;
+    }
+
+    public PiButton lore(String... lines) {
+        return lore(lines != null ? Arrays.asList(lines) : List.of());
+    }
+
+    public PiButton lore(List<String> lines) {
+        ItemMeta meta = icon.getItemMeta();
+        if (meta != null && lines != null) {
+            List<String> list = new ArrayList<>();
+            for (String l : lines) list.add(ChatColor.translateAlternateColorCodes('&', l));
+            meta.setLore(list);
+            icon.setItemMeta(meta);
+        }
+        return this;
+    }
+
+    public PiButton addLore(String... extraLines) {
+        ItemMeta meta = icon.getItemMeta();
+        if (meta != null && extraLines != null && extraLines.length > 0) {
+            List<String> list = meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
+            for (String l : extraLines) list.add(ChatColor.translateAlternateColorCodes('&', l));
+            meta.setLore(list);
+            icon.setItemMeta(meta);
+        }
+        return this;
+    }
+
+    public PiButton amount(int count) {
+        icon.setAmount(Math.max(1, count));
+        return this;
+    }
+
+    public PiButton model(int customModelData) {
+        ItemMeta meta = icon.getItemMeta();
+        if (meta != null) {
+            meta.setCustomModelData(customModelData);
+            icon.setItemMeta(meta);
+        }
+        return this;
+    }
+
+    public PiButton glow() {
+        return glow(true);
+    }
+
+    public PiButton glow(boolean active) {
+        ItemMeta meta = icon.getItemMeta();
+        if (meta != null) {
+            if (active) {
+                meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            } else {
+                for (Enchantment enc : new ArrayList<>(meta.getEnchants().keySet())) {
+                    meta.removeEnchant(enc);
+                }
+                meta.removeItemFlags(ItemFlag.HIDE_ENCHANTS);
+            }
+            icon.setItemMeta(meta);
+        }
+        return this;
     }
 
     public PiButton onClick(BiConsumer<Player, InventoryClickEvent> handler) {

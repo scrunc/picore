@@ -20,12 +20,12 @@ public class ItemBuilder {
     private final ItemMeta meta;
 
     public ItemBuilder(Material material) {
-        this.item = new ItemStack(material);
+        this.item = new ItemStack(material != null ? material : Material.STONE);
         this.meta = item.getItemMeta();
     }
 
     public ItemBuilder(ItemStack item) {
-        this.item = item.clone();
+        this.item = item != null ? item.clone() : new ItemStack(Material.STONE);
         this.meta = this.item.getItemMeta();
     }
 
@@ -39,7 +39,7 @@ public class ItemBuilder {
 
     public ItemBuilder name(String name) {
         if (meta != null && name != null) {
-            meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+            meta.setDisplayName(PiText.color(name));
         }
         return this;
     }
@@ -50,11 +50,14 @@ public class ItemBuilder {
 
     public ItemBuilder lore(List<String> lines) {
         if (meta != null && lines != null) {
-            List<String> colored = new ArrayList<>();
-            for (String line : lines) {
-                colored.add(ChatColor.translateAlternateColorCodes('&', line));
-            }
-            meta.setLore(colored);
+            meta.setLore(PiText.color(lines));
+        }
+        return this;
+    }
+
+    public ItemBuilder wrapLore(String text, int maxLineLength) {
+        if (meta != null && text != null) {
+            meta.setLore(PiText.wrap(text, maxLineLength));
         }
         return this;
     }
@@ -64,20 +67,34 @@ public class ItemBuilder {
         return this;
     }
 
+    public ItemBuilder model(int customModelData) {
+        if (meta != null) {
+            meta.setCustomModelData(customModelData);
+        }
+        return this;
+    }
+
     public ItemBuilder glow() {
         return glow(true);
     }
 
     public ItemBuilder glow(boolean active) {
-        if (meta != null && active) {
-            meta.addEnchant(Enchantment.UNBREAKING, 1, true);
-            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        if (meta != null) {
+            if (active) {
+                meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+                meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            } else {
+                for (Enchantment enc : new ArrayList<>(meta.getEnchants().keySet())) {
+                    meta.removeEnchant(enc);
+                }
+                meta.removeItemFlags(ItemFlag.HIDE_ENCHANTS);
+            }
         }
         return this;
     }
 
     public ItemBuilder flags(ItemFlag... flags) {
-        if (meta != null) {
+        if (meta != null && flags != null) {
             meta.addItemFlags(flags);
         }
         return this;
@@ -90,4 +107,3 @@ public class ItemBuilder {
         return item;
     }
 }
-
