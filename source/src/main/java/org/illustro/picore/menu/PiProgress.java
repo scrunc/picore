@@ -45,3 +45,4 @@ public final class PiProgress {
         return String.format(java.util.Locale.US, "%.1f%%", p);
     }
 }
+

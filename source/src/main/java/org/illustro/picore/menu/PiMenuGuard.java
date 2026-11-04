@@ -10,16 +10,24 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * 3-Tier Defense-in-Depth anti-theft and exploit guard for PiCore.
  * Protects every menu across all connected plugins (PixelProfiler, Koth, MachineConstruct, etc.):
  *
- * Tier 1: Frontline EventPriority.LOWEST cancellation for PiMenuHolder inventories.
+ * Tier 1: Frontline EventPriority.LOWEST cancellation for PiMenuHolder inventories with event deduplication.
  * Tier 2: PersistentDataContainer (PDC) item stamping and HIGHEST cancellation backstop.
  * Tier 3: Inventory close/join sweeper catching packet lag or hacked-client item leaks.
  */
@@ -28,6 +36,13 @@ public class PiMenuGuard implements Listener {
     private static final NamespacedKey KEY_PICORE = new NamespacedKey("picore", "gui");
     private static final NamespacedKey KEY_LEGACY = new NamespacedKey("pixelprofiler", "gui");
 
+    // Static event deduplication across multiple plugin registrations / listeners
+    private static final Set<InventoryClickEvent> PROCESSED_CLICKS =
+            Collections.newSetFromMap(new WeakHashMap<>());
+
+    // Micro-debounce per player (50ms / 1 tick) to protect against mouse switch bounce / chatter
+    private static final Map<UUID, Long> LAST_CLICK_MS = new ConcurrentHashMap<>();
+
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
     public void onMenuClick(InventoryClickEvent e) {
         if (!(e.getWhoClicked() instanceof Player player)) return;
@@ -35,6 +50,19 @@ public class PiMenuGuard implements Listener {
         Inventory top = e.getView().getTopInventory();
         if (top.getHolder() instanceof PiMenuHolder holder) {
             e.setCancelled(true);
+
+            // Deduplicate: ensure an event instance is only handled once across any number of guard instances
+            if (!PROCESSED_CLICKS.add(e)) {
+                return;
+            }
+
+            // Debounce rapid packet spam or physical mouse switch chatter (<50ms / 1 tick)
+            long now = System.currentTimeMillis();
+            Long last = LAST_CLICK_MS.get(player.getUniqueId());
+            if (last != null && now - last < 50L) {
+                return;
+            }
+            LAST_CLICK_MS.put(player.getUniqueId(), now);
 
             Inventory clicked = e.getClickedInventory();
             if (clicked != null && clicked.equals(top)) {
@@ -94,35 +122,43 @@ public class PiMenuGuard implements Listener {
         sweepPlayerInventory(e.getPlayer());
     }
 
-    public static boolean isStamped(ItemStack item) {
-        if (item == null || item.getType() == Material.AIR || !item.hasItemMeta()) return false;
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent e) {
+        LAST_CLICK_MS.remove(e.getPlayer().getUniqueId());
+    }
+
+    private boolean isStamped(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
         ItemMeta meta = item.getItemMeta();
-        return meta.getPersistentDataContainer().has(KEY_PICORE, PersistentDataType.BYTE)
-                || meta.getPersistentDataContainer().has(KEY_LEGACY, PersistentDataType.BYTE);
+        if (meta == null) return false;
+        var pdc = meta.getPersistentDataContainer();
+        return pdc.has(KEY_PICORE, PersistentDataType.BYTE) || pdc.has(KEY_LEGACY, PersistentDataType.BYTE);
     }
 
     public static void sweepPlayerInventory(Player player) {
-        if (player == null || !player.isOnline()) return;
-
-        Inventory inv = player.getInventory();
-        boolean swept = false;
-        for (int i = 0; i < inv.getSize(); i++) {
-            ItemStack item = inv.getItem(i);
-            if (isStamped(item)) {
-                inv.setItem(i, null);
-                swept = true;
+        boolean cleaned = false;
+        for (int i = 0; i < player.getInventory().getSize(); i++) {
+            ItemStack item = player.getInventory().getItem(i);
+            if (item != null && item.hasItemMeta()) {
+                var pdc = item.getItemMeta().getPersistentDataContainer();
+                if (pdc.has(KEY_PICORE, PersistentDataType.BYTE) || pdc.has(KEY_LEGACY, PersistentDataType.BYTE)) {
+                    player.getInventory().setItem(i, new ItemStack(Material.AIR));
+                    cleaned = true;
+                }
             }
         }
 
         ItemStack cursor = player.getItemOnCursor();
-        if (isStamped(cursor)) {
-            player.setItemOnCursor(null);
-            swept = true;
+        if (cursor != null && cursor.hasItemMeta()) {
+            var pdc = cursor.getItemMeta().getPersistentDataContainer();
+            if (pdc.has(KEY_PICORE, PersistentDataType.BYTE) || pdc.has(KEY_LEGACY, PersistentDataType.BYTE)) {
+                player.setItemOnCursor(new ItemStack(Material.AIR));
+                cleaned = true;
+            }
         }
 
-        if (swept) {
+        if (cleaned) {
             player.updateInventory();
         }
     }
 }
-
