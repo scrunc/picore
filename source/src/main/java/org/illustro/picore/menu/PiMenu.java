@@ -1,15 +1,17 @@
 package org.illustro.picore.menu;
 
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
+import org.illustro.picore.utils.PiText;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,24 +21,37 @@ import java.util.function.Consumer;
 /**
  * Fluent builder for creating interactive inventory menus in PiCore.
  * Automatically marks buttons with PDC anti-theft stamps and handles slot
- * mapping. Supports live in-place slot updating, whole-menu refreshes, and bottom inventory interactions.
+ * mapping. Supports live in-place slot updating, whole-menu refreshes,
+ * sub-menu transitions, bottom inventory pickup, and drag hooks.
  */
 public class PiMenu {
 
     public static final NamespacedKey GUI_KEY = new NamespacedKey("picore", "gui");
+    public static final NamespacedKey LEGACY_GUI_KEY = new NamespacedKey("pixelprofiler", "gui");
 
-    private final String title;
+    private final Component title;
     private final int rows;
     private final Map<Integer, PiButton> buttons = new HashMap<>();
     private Consumer<Player> onClose;
     private BiConsumer<Player, InventoryClickEvent> onBottomClick;
+    private BiConsumer<Player, InventoryDragEvent> onDrag;
+    private boolean allowBottomInventoryPickup = false;
 
     public PiMenu(String title, int rows) {
-        this.title = ChatColor.translateAlternateColorCodes('&', title);
+        this.title = PiText.component(title != null ? title : "");
+        this.rows = Math.max(1, Math.min(6, rows));
+    }
+
+    public PiMenu(Component title, int rows) {
+        this.title = title != null ? title : Component.empty();
         this.rows = Math.max(1, Math.min(6, rows));
     }
 
     public static PiMenu create(String title, int rows) {
+        return new PiMenu(title, rows);
+    }
+
+    public static PiMenu create(Component title, int rows) {
         return new PiMenu(title, rows);
     }
 
@@ -97,14 +112,11 @@ public class PiMenu {
     }
 
     public void handleClose(Player player) {
-        if (onClose != null)
+        if (onClose != null) {
             onClose.accept(player);
+        }
     }
 
-    /**
-     * Registers a click handler for clicks in the player's bottom inventory while this menu is open.
-     * Useful for deposit slots, item pickers, and selling workflows.
-     */
     public PiMenu onBottomClick(BiConsumer<Player, InventoryClickEvent> handler) {
         this.onBottomClick = handler;
         return this;
@@ -117,6 +129,38 @@ public class PiMenu {
     public void handleBottomClick(Player player, InventoryClickEvent event) {
         if (onBottomClick != null) {
             onBottomClick.accept(player, event);
+        }
+    }
+
+    /**
+     * When enabled, players can pick up and rearrange their own items in their bottom inventory
+     * (e.g., to put an item on their cursor for trade template slots in LivingNPC), while shift-clicking
+     * and double-click raking into the top GUI remain blocked.
+     */
+    public PiMenu allowBottomInventoryPickup(boolean allow) {
+        this.allowBottomInventoryPickup = allow;
+        return this;
+    }
+
+    public boolean isBottomInventoryPickupAllowed() {
+        return allowBottomInventoryPickup;
+    }
+
+    /**
+     * Registers a drag handler for when a player drags an item across top inventory slots.
+     */
+    public PiMenu onDrag(BiConsumer<Player, InventoryDragEvent> handler) {
+        this.onDrag = handler;
+        return this;
+    }
+
+    public boolean hasDragHandler() {
+        return onDrag != null;
+    }
+
+    public void handleDrag(Player player, InventoryDragEvent event) {
+        if (onDrag != null) {
+            onDrag.accept(player, event);
         }
     }
 
@@ -138,7 +182,6 @@ public class PiMenu {
             stampPdc(icon);
             inv.setItem(entry.getKey(), icon);
         }
-
         return inv;
     }
 
@@ -146,9 +189,12 @@ public class PiMenu {
         player.openInventory(build());
     }
 
-    /**
-     * Updates an individual slot in-place on the player's currently open inventory without closing it.
-     */
+    public void openSubMenu(Player player, PiMenu subMenu) {
+        if (player == null || subMenu == null) return;
+        PiMenuGuard.suppressNextClose(player);
+        subMenu.open(player);
+    }
+
     public void updateSlot(Player player, int slot, PiButton button) {
         if (slot < 0 || slot >= rows * 9) return;
         buttons.put(slot, button);
@@ -160,9 +206,6 @@ public class PiMenu {
         }
     }
 
-    /**
-     * Re-renders all buttons in-place on the player's currently open inventory without closing it.
-     */
     public void refresh(Player player) {
         if (player != null && player.isOnline() && player.getOpenInventory() != null) {
             Inventory top = player.getOpenInventory().getTopInventory();
@@ -173,8 +216,7 @@ public class PiMenu {
     }
 
     public static void stampPdc(ItemStack item) {
-        if (item == null || item.getType() == Material.AIR)
-            return;
+        if (item == null || item.getType() == Material.AIR) return;
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.getPersistentDataContainer().set(GUI_KEY, PersistentDataType.BYTE, (byte) 1);
@@ -182,9 +224,35 @@ public class PiMenu {
         }
     }
 
+    public static void unstampPdc(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR || !item.hasItemMeta()) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            var pdc = meta.getPersistentDataContainer();
+            boolean changed = false;
+            if (pdc.has(GUI_KEY, PersistentDataType.BYTE)) {
+                pdc.remove(GUI_KEY);
+                changed = true;
+            }
+            if (pdc.has(LEGACY_GUI_KEY, PersistentDataType.BYTE)) {
+                pdc.remove(LEGACY_GUI_KEY);
+                changed = true;
+            }
+            if (changed) {
+                item.setItemMeta(meta);
+            }
+        }
+    }
+
+    public static ItemStack cloneClean(ItemStack item) {
+        if (item == null) return new ItemStack(Material.AIR);
+        ItemStack copy = item.clone();
+        unstampPdc(copy);
+        return copy;
+    }
+
     public static boolean hasPdcStamp(ItemStack item) {
-        if (item == null || !item.hasItemMeta())
-            return false;
+        if (item == null || !item.hasItemMeta()) return false;
         return item.getItemMeta().getPersistentDataContainer().has(GUI_KEY, PersistentDataType.BYTE);
     }
 
@@ -192,7 +260,7 @@ public class PiMenu {
         ItemStack item = new ItemStack(mat);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+            meta.displayName(PiText.component(name));
             item.setItemMeta(meta);
         }
         return item;

@@ -1,5 +1,7 @@
 package org.illustro.picore.menu;
 
+import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -9,6 +11,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
+import org.illustro.picore.utils.PiText;
 
 import java.util.Map;
 import java.util.UUID;
@@ -17,8 +20,8 @@ import java.util.function.Consumer;
 
 /**
  * Universal interactive prompt system for capturing text and numeric input from players.
- * Safely cancels chat events at LOWEST priority to avoid leaking input to public chat,
- * and delivers all responses on the Bukkit primary thread.
+ * Listens to Paper's AsyncChatEvent (with legacy fallback) at LOWEST priority,
+ * enforces prompt timeouts, and delivers all responses on the Bukkit primary thread.
  */
 public final class PiPrompt {
 
@@ -41,12 +44,12 @@ public final class PiPrompt {
             this.onCancel = onCancel;
             this.timeoutMillis = System.currentTimeMillis() + (timeoutSeconds * 1000L);
         }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() > timeoutMillis;
+        }
     }
 
-    /**
-     * Initializes the chat listener. Can be called explicitly during onEnable,
-     * or is automatically registered on first prompt call.
-     */
     public static synchronized void register(Plugin plugin) {
         if (!listenerRegistered && plugin != null) {
             Bukkit.getPluginManager().registerEvents(new PromptListener(), plugin);
@@ -54,16 +57,6 @@ public final class PiPrompt {
         }
     }
 
-    /**
-     * Prompts the player for string input.
-     *
-     * @param plugin hosting plugin
-     * @param player player to prompt
-     * @param promptTitle displayed title / label
-     * @param currentValue optional current value to show (null to omit)
-     * @param onConfirm callback receiving the entered string on the Bukkit main thread
-     * @param onCancel callback executed if cancelled or timed out
-     */
     public static void text(
             Plugin plugin,
             Player player,
@@ -75,29 +68,28 @@ public final class PiPrompt {
         if (plugin == null || player == null || !player.isOnline()) return;
         register(plugin);
 
-        // Close any currently open GUI
         if (Bukkit.isPrimaryThread()) {
+            PiMenuGuard.suppressNextClose(player);
             player.closeInventory();
         } else {
-            Bukkit.getScheduler().runTask(plugin, () -> player.closeInventory());
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                PiMenuGuard.suppressNextClose(player);
+                player.closeInventory();
+            });
         }
 
         PENDING.put(player.getUniqueId(), new PendingPrompt(plugin, promptTitle, onConfirm, onCancel, 60));
 
         PiSound.click(player);
-        player.sendMessage(ChatColor.DARK_GRAY + "«" + ChatColor.STRIKETHROUGH + "----------------------------------------" + ChatColor.DARK_GRAY + "»");
-        player.sendMessage(ChatColor.YELLOW + "✎ " + ChatColor.GOLD + ChatColor.BOLD + ChatColor.translateAlternateColorCodes('&', promptTitle));
+        player.sendMessage(ChatColor.DARK_GRAY + "▪" + ChatColor.STRIKETHROUGH + "----------------------------------------" + ChatColor.DARK_GRAY + "▪");
+        player.sendMessage(PiText.component("&e▸ &6&l" + promptTitle));
         if (currentValue != null && !currentValue.isBlank()) {
-            player.sendMessage(ChatColor.GRAY + "Current value: " + ChatColor.WHITE + currentValue);
+            player.sendMessage(PiText.component("&7Current value: &f" + currentValue));
         }
         player.sendMessage(ChatColor.GRAY + "Type your new value in chat, or type " + ChatColor.RED + "cancel" + ChatColor.GRAY + " to abort.");
-        player.sendMessage(ChatColor.DARK_GRAY + "«" + ChatColor.STRIKETHROUGH + "----------------------------------------" + ChatColor.DARK_GRAY + "»");
+        player.sendMessage(ChatColor.DARK_GRAY + "▪" + ChatColor.STRIKETHROUGH + "----------------------------------------" + ChatColor.DARK_GRAY + "▪");
     }
 
-    /**
-     * Prompts the player for an integer within a bounds range.
-     * Reprompts automatically if the input is not a valid integer within [min, max].
-     */
     public static void number(
             Plugin plugin,
             Player player,
@@ -108,13 +100,12 @@ public final class PiPrompt {
             Consumer<Integer> onConfirm,
             Runnable onCancel
     ) {
-        text(plugin, player, promptTitle, String.valueOf(currentValue) + " [" + min + " - " + max + "]", input -> {
+        text(plugin, player, promptTitle, currentValue + " [" + min + " - " + max + "]", input -> {
             try {
                 int val = Integer.parseInt(input.trim());
                 if (val < min || val > max) {
                     player.sendMessage(ChatColor.RED + "Value must be between " + min + " and " + max + ".");
                     PiSound.deny(player);
-                    // Re-prompt
                     number(plugin, player, promptTitle, currentValue, min, max, onConfirm, onCancel);
                     return;
                 }
@@ -123,14 +114,19 @@ public final class PiPrompt {
             } catch (NumberFormatException e) {
                 player.sendMessage(ChatColor.RED + "Invalid number format. Please enter an integer.");
                 PiSound.deny(player);
-                // Re-prompt
                 number(plugin, player, promptTitle, currentValue, min, max, onConfirm, onCancel);
             }
         }, onCancel);
     }
 
     public static boolean isAwaiting(Player player) {
-        return player != null && PENDING.containsKey(player.getUniqueId());
+        if (player == null) return false;
+        PendingPrompt p = PENDING.get(player.getUniqueId());
+        if (p != null && p.isExpired()) {
+            PENDING.remove(player.getUniqueId());
+            return false;
+        }
+        return p != null;
     }
 
     public static void cancel(Player player) {
@@ -147,17 +143,34 @@ public final class PiPrompt {
 
     public static class PromptListener implements Listener {
 
-        @EventHandler(priority = EventPriority.LOWEST)
-        public void onChat(AsyncPlayerChatEvent e) {
+        @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
+        public void onPaperChat(AsyncChatEvent e) {
             Player player = e.getPlayer();
-            PendingPrompt prompt = PENDING.get(player.getUniqueId());
-            if (prompt == null) return;
+            String raw = PlainTextComponentSerializer.plainText().serialize(e.message());
+            if (consumePromptInput(player, raw)) {
+                e.setCancelled(true);
+            }
+        }
 
-            e.setCancelled(true);
-            PENDING.remove(player.getUniqueId());
+        @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+        public void onLegacyChat(AsyncPlayerChatEvent e) {
+            if (consumePromptInput(e.getPlayer(), e.getMessage())) {
+                e.setCancelled(true);
+            }
+        }
 
-            String msg = e.getMessage().trim();
+        private boolean consumePromptInput(Player player, String rawMessage) {
+            PendingPrompt prompt = PENDING.remove(player.getUniqueId());
+            if (prompt == null) return false;
 
+            if (prompt.isExpired()) {
+                if (prompt.onCancel != null) {
+                    Bukkit.getScheduler().runTask(prompt.plugin, prompt.onCancel);
+                }
+                return false;
+            }
+
+            String msg = rawMessage != null ? rawMessage.trim() : "";
             Bukkit.getScheduler().runTask(prompt.plugin, () -> {
                 if (msg.equalsIgnoreCase("cancel")) {
                     PiSound.deny(player);
@@ -167,11 +180,11 @@ public final class PiPrompt {
                     }
                     return;
                 }
-
                 if (prompt.onConfirm != null) {
                     prompt.onConfirm.accept(msg);
                 }
             });
+            return true;
         }
 
         @EventHandler

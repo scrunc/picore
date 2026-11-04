@@ -1,11 +1,12 @@
 package org.illustro.picore.utils;
 
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.illustro.picore.menu.PiMenu;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,6 +14,7 @@ import java.util.List;
 
 /**
  * Fluent ItemStack builder for clean and rapid menu design in PiCore.
+ * Supports MiniMessage, Adventure Components, and legacy color codes.
  */
 public class ItemBuilder {
 
@@ -39,7 +41,14 @@ public class ItemBuilder {
 
     public ItemBuilder name(String name) {
         if (meta != null && name != null) {
-            meta.setDisplayName(PiText.color(name));
+            meta.displayName(PiText.component(name));
+        }
+        return this;
+    }
+
+    public ItemBuilder name(Component name) {
+        if (meta != null && name != null) {
+            meta.displayName(name);
         }
         return this;
     }
@@ -50,14 +59,34 @@ public class ItemBuilder {
 
     public ItemBuilder lore(List<String> lines) {
         if (meta != null && lines != null) {
-            meta.setLore(PiText.color(lines));
+            meta.lore(PiText.components(lines));
+        }
+        return this;
+    }
+
+    public ItemBuilder loreComponents(List<Component> lines) {
+        if (meta != null && lines != null) {
+            meta.lore(new ArrayList<>(lines));
+        }
+        return this;
+    }
+
+    public ItemBuilder addLore(String... extraLines) {
+        if (meta != null && extraLines != null && extraLines.length > 0) {
+            List<Component> current = meta.hasLore() && meta.lore() != null
+                    ? new ArrayList<>(meta.lore())
+                    : new ArrayList<>();
+            for (String line : extraLines) {
+                current.add(PiText.component(line));
+            }
+            meta.lore(current);
         }
         return this;
     }
 
     public ItemBuilder wrapLore(String text, int maxLineLength) {
         if (meta != null && text != null) {
-            meta.setLore(PiText.wrap(text, maxLineLength));
+            meta.lore(PiText.components(PiText.wrap(text, maxLineLength)));
         }
         return this;
     }
@@ -105,5 +134,14 @@ public class ItemBuilder {
             item.setItemMeta(meta);
         }
         return item;
+    }
+
+    /**
+     * Builds the ItemStack and ensures any PiCore GUI anti-theft PDC tags are stripped.
+     */
+    public ItemStack buildClean() {
+        ItemStack built = build();
+        PiMenu.unstampPdc(built);
+        return built;
     }
 }

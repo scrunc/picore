@@ -40,5 +40,12 @@
     "mandatory": false,
     "notes": "Utility helpers, hex chat formatting, and performance patches.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
+  },
+  "LivingNPC": {
+    "latest": "0.1.0",
+    "min_core_version": "1.2.0",
+    "mandatory": false,
+    "notes": "Migrated dialog, shop, and settings GUIs onto PiCore universal menu engine.",
+    "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }

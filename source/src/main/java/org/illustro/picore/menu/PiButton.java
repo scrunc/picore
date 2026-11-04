@@ -1,27 +1,35 @@
 package org.illustro.picore.menu;
 
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.illustro.picore.PiCore;
+import org.illustro.picore.utils.PiText;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
  * Declarative button representing an interactive slot in a PiMenu.
- * Supports left, right, and shift clicks, sound feedback, permission checks, steppers, toggles, cyclers,
- * glow effects, custom model data, and fluent lore manipulation.
+ * Supports left, right, shift-left, shift-right, middle, and drop clicks,
+ * inline 2-step confirmation, steppers, toggles, cyclers, and MiniMessage.
  */
 public class PiButton {
 
@@ -29,6 +37,10 @@ public class PiButton {
     private BiConsumer<Player, InventoryClickEvent> onClick;
     private BiConsumer<Player, InventoryClickEvent> onLeftClick;
     private BiConsumer<Player, InventoryClickEvent> onRightClick;
+    private BiConsumer<Player, InventoryClickEvent> onShiftLeftClick;
+    private BiConsumer<Player, InventoryClickEvent> onShiftRightClick;
+    private BiConsumer<Player, InventoryClickEvent> onMiddleClick;
+    private BiConsumer<Player, InventoryClickEvent> onDropClick;
     private String permission;
     private Sound sound;
     private float soundVolume = 1.0f;
@@ -46,15 +58,110 @@ public class PiButton {
         ItemStack item = new ItemStack(mat != null ? mat : Material.STONE);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
-            if (name != null) meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+            if (name != null) meta.displayName(PiText.component(name));
             if (lore != null && lore.length > 0) {
-                List<String> list = new ArrayList<>();
-                for (String l : lore) list.add(ChatColor.translateAlternateColorCodes('&', l));
-                meta.setLore(list);
+                meta.lore(PiText.components(Arrays.asList(lore)));
             }
             item.setItemMeta(meta);
         }
         return new PiButton(item);
+    }
+
+    /**
+     * Clones a real player/shop ItemStack as a menu button while preserving its original
+     * Adventure Component name, lore, and metadata, and appends extra UI lore lines below.
+     */
+    public static PiButton fromTemplate(ItemStack template, String... extraLore) {
+        ItemStack copy = template != null ? template.clone() : new ItemStack(Material.STONE);
+        PiButton btn = new PiButton(copy);
+        if (extraLore != null && extraLore.length > 0) {
+            btn.addLore(extraLore);
+        }
+        return btn;
+    }
+
+    /**
+     * Creates an inline two-step confirmation button (e.g. "Delete Shop").
+     * First click arms the button in-place with the armed icon/text for timeoutSeconds;
+     * clicking again before expiry executes onConfirmed.
+     */
+    public static PiButton confirm(
+            Material normalMat,
+            String normalTitle,
+            List<String> normalLore,
+            Material armedMat,
+            String armedTitle,
+            List<String> armedLore,
+            int timeoutSeconds,
+            BiConsumer<Player, InventoryClickEvent> onConfirmed
+    ) {
+        Map<UUID, Long> armedUntil = new ConcurrentHashMap<>();
+        int windowSec = Math.max(1, timeoutSeconds);
+
+        ItemStack baseIcon = create(
+                normalMat,
+                normalTitle,
+                normalLore != null ? normalLore.toArray(new String[0]) : new String[0]
+        ).getIcon();
+
+        ItemStack armedIcon = create(
+                armedMat != null ? armedMat : Material.BARRIER,
+                armedTitle != null ? armedTitle : "&c&lCLICK AGAIN TO CONFIRM",
+                armedLore != null ? armedLore.toArray(new String[0]) : new String[]{"&7Expires in " + windowSec + "s."}
+        ).glow(true).getIcon();
+
+        PiButton btn = new PiButton(baseIcon);
+        btn.onClick((p, e) -> {
+            long now = System.currentTimeMillis();
+            Long expiry = armedUntil.get(p.getUniqueId());
+
+            if (expiry != null && now <= expiry) {
+                armedUntil.remove(p.getUniqueId());
+                PiSound.success(p);
+                if (e.getView().getTopInventory().getHolder() instanceof PiMenuHolder holder) {
+                    holder.updateSlot(e.getSlot(), btn);
+                }
+                if (onConfirmed != null) {
+                    onConfirmed.accept(p, e);
+                }
+                return;
+            }
+
+            long newExpiry = now + (windowSec * 1000L);
+            armedUntil.put(p.getUniqueId(), newExpiry);
+            PiSound.deny(p);
+
+            int slot = e.getSlot();
+            if (e.getView().getTopInventory().getHolder() instanceof PiMenuHolder holder) {
+                PiButton armedBtn = new PiButton(armedIcon).onClick(btn.onClick);
+                holder.updateSlot(slot, armedBtn);
+
+                PiCore core = PiCore.getInstance();
+                if (core != null && core.isEnabled()) {
+                    Bukkit.getScheduler().runTaskLater(core, () -> {
+                        Long currentExp = armedUntil.get(p.getUniqueId());
+                        if (currentExp != null && currentExp == newExpiry) {
+                            armedUntil.remove(p.getUniqueId());
+                            if (p.isOnline() && p.getOpenInventory().getTopInventory().getHolder() == holder) {
+                                holder.updateSlot(slot, btn);
+                            }
+                        }
+                    }, windowSec * 20L);
+                }
+            }
+        });
+        return btn;
+    }
+
+    public static PiButton confirm(
+            Material normalMat,
+            String normalTitle,
+            Material armedMat,
+            String armedTitle,
+            int timeoutSeconds,
+            BiConsumer<Player, InventoryClickEvent> onConfirmed
+    ) {
+        return confirm(normalMat, normalTitle, null, armedMat, armedTitle, null, timeoutSeconds, onConfirmed);
     }
 
     public static PiButton playerHead(java.util.UUID uuid, String playerName, String displayName, String... lore) {
@@ -69,10 +176,6 @@ public class PiButton {
         return PiSkull.buttonFromTexture(textureValue, displayName, lore);
     }
 
-    /**
-     * Creates an interactive stepper button for integer adjustments (e.g. timers, chances, multipliers).
-     * Handles Left-Click (+step), Right-Click (-step), Shift-Left (+shiftStep), Shift-Right (-shiftStep).
-     */
     public static PiButton stepper(
             Material mat,
             String title,
@@ -87,9 +190,9 @@ public class PiButton {
         String u = unit != null ? unit : "";
         List<String> lore = new ArrayList<>();
         lore.add("&7Current: &e" + current + u);
-        lore.add("&8» &aLeft-Click: &7+" + step + u);
-        lore.add("&8» &cRight-Click: &7-" + step + u);
-        lore.add("&8» &eShift-Click: &7±" + shiftStep + u);
+        lore.add("&8• &aLeft-Click: &7+" + step + u);
+        lore.add("&8• &cRight-Click: &7-" + step + u);
+        lore.add("&8• &eShift-Click: &7±" + shiftStep + u);
 
         return create(mat, title, lore.toArray(new String[0]))
                 .onClick((p, e) -> {
@@ -99,7 +202,6 @@ public class PiButton {
                     } else {
                         delta = e.isLeftClick() ? step : -step;
                     }
-
                     int newVal = Math.max(min, Math.min(max, current + delta));
                     if (newVal == current) {
                         PiSound.deny(p);
@@ -125,9 +227,6 @@ public class PiButton {
         return stepper(mat, title, current, min, max, step, shiftStep, "", onChange);
     }
 
-    /**
-     * Creates an interactive toggle button with distinct on/off materials and automated status lore.
-     */
     public static PiButton toggle(
             Material onMat,
             Material offMat,
@@ -139,7 +238,7 @@ public class PiButton {
         String status = state ? "&aEnabled" : "&cDisabled";
         List<String> lore = new ArrayList<>();
         lore.add("&7Status: " + status);
-        lore.add("&8» &eClick &7to toggle");
+        lore.add("&8• &eClick &7to toggle");
 
         return create(mat, title, lore.toArray(new String[0]))
                 .onClick((p, e) -> {
@@ -159,10 +258,6 @@ public class PiButton {
         return toggle(mat, mat, title, state, onToggle);
     }
 
-    /**
-     * Creates an option cycling button (e.g. sorting filters, modes, game rules).
-     * Left-Click cycles forward, Right-Click cycles backward.
-     */
     public static <E> PiButton cycle(
             Material mat,
             String title,
@@ -177,15 +272,15 @@ public class PiButton {
             for (E opt : options) {
                 String lbl = labelFunction != null ? labelFunction.apply(opt) : String.valueOf(opt);
                 if (Objects.equals(opt, current)) {
-                    lore.add(" &a● &f" + lbl);
+                    lore.add(" &a▸ &f" + lbl);
                 } else {
-                    lore.add(" &8○ &7" + lbl);
+                    lore.add(" &8▪ &7" + lbl);
                 }
             }
         }
         lore.add("");
-        lore.add("&8» &eLeft-Click: &7Next option");
-        lore.add("&8» &eRight-Click: &7Previous option");
+        lore.add("&8• &eLeft-Click: &7Next option");
+        lore.add("&8• &eRight-Click: &7Previous option");
 
         return create(mat, title, lore.toArray(new String[0]))
                 .onClick((p, e) -> {
@@ -224,7 +319,18 @@ public class PiButton {
         if (displayName != null) {
             ItemMeta meta = icon.getItemMeta();
             if (meta != null) {
-                meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', displayName));
+                meta.displayName(PiText.component(displayName));
+                icon.setItemMeta(meta);
+            }
+        }
+        return this;
+    }
+
+    public PiButton name(Component displayName) {
+        if (displayName != null) {
+            ItemMeta meta = icon.getItemMeta();
+            if (meta != null) {
+                meta.displayName(displayName);
                 icon.setItemMeta(meta);
             }
         }
@@ -238,9 +344,7 @@ public class PiButton {
     public PiButton lore(List<String> lines) {
         ItemMeta meta = icon.getItemMeta();
         if (meta != null && lines != null) {
-            List<String> list = new ArrayList<>();
-            for (String l : lines) list.add(ChatColor.translateAlternateColorCodes('&', l));
-            meta.setLore(list);
+            meta.lore(PiText.components(lines));
             icon.setItemMeta(meta);
         }
         return this;
@@ -249,9 +353,13 @@ public class PiButton {
     public PiButton addLore(String... extraLines) {
         ItemMeta meta = icon.getItemMeta();
         if (meta != null && extraLines != null && extraLines.length > 0) {
-            List<String> list = meta.hasLore() && meta.getLore() != null ? new ArrayList<>(meta.getLore()) : new ArrayList<>();
-            for (String l : extraLines) list.add(ChatColor.translateAlternateColorCodes('&', l));
-            meta.setLore(list);
+            List<Component> list = meta.hasLore() && meta.lore() != null
+                    ? new ArrayList<>(meta.lore())
+                    : new ArrayList<>();
+            for (String l : extraLines) {
+                list.add(PiText.component(l));
+            }
+            meta.lore(list);
             icon.setItemMeta(meta);
         }
         return this;
@@ -297,13 +405,54 @@ public class PiButton {
         return this;
     }
 
+    public PiButton onClick(Consumer<Player> handler) {
+        this.onClick = (p, e) -> {
+            if (handler != null) handler.accept(p);
+        };
+        return this;
+    }
+
     public PiButton onLeftClick(BiConsumer<Player, InventoryClickEvent> handler) {
         this.onLeftClick = handler;
         return this;
     }
 
+    public PiButton onLeftClick(Consumer<Player> handler) {
+        this.onLeftClick = (p, e) -> {
+            if (handler != null) handler.accept(p);
+        };
+        return this;
+    }
+
     public PiButton onRightClick(BiConsumer<Player, InventoryClickEvent> handler) {
         this.onRightClick = handler;
+        return this;
+    }
+
+    public PiButton onRightClick(Consumer<Player> handler) {
+        this.onRightClick = (p, e) -> {
+            if (handler != null) handler.accept(p);
+        };
+        return this;
+    }
+
+    public PiButton onShiftLeftClick(BiConsumer<Player, InventoryClickEvent> handler) {
+        this.onShiftLeftClick = handler;
+        return this;
+    }
+
+    public PiButton onShiftRightClick(BiConsumer<Player, InventoryClickEvent> handler) {
+        this.onShiftRightClick = handler;
+        return this;
+    }
+
+    public PiButton onMiddleClick(BiConsumer<Player, InventoryClickEvent> handler) {
+        this.onMiddleClick = handler;
+        return this;
+    }
+
+    public PiButton onDropClick(BiConsumer<Player, InventoryClickEvent> handler) {
+        this.onDropClick = handler;
         return this;
     }
 
@@ -333,13 +482,26 @@ public class PiButton {
             p.sendMessage(ChatColor.RED + "You lack permission to use this button.");
             return;
         }
-
         if (sound != null) {
             p.playSound(p.getLocation(), sound, soundVolume, soundPitch);
         }
 
         boolean specificHandled = false;
-        if (e.isLeftClick() && onLeftClick != null) {
+        ClickType click = e.getClick();
+
+        if (click == ClickType.SHIFT_LEFT && onShiftLeftClick != null) {
+            onShiftLeftClick.accept(p, e);
+            specificHandled = true;
+        } else if (click == ClickType.SHIFT_RIGHT && onShiftRightClick != null) {
+            onShiftRightClick.accept(p, e);
+            specificHandled = true;
+        } else if ((click == ClickType.MIDDLE || click == ClickType.CREATIVE) && onMiddleClick != null) {
+            onMiddleClick.accept(p, e);
+            specificHandled = true;
+        } else if ((click == ClickType.DROP || click == ClickType.CONTROL_DROP) && onDropClick != null) {
+            onDropClick.accept(p, e);
+            specificHandled = true;
+        } else if (e.isLeftClick() && onLeftClick != null) {
             onLeftClick.accept(p, e);
             specificHandled = true;
         } else if (e.isRightClick() && onRightClick != null) {
