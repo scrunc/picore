@@ -50,8 +50,9 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
         this.updateRegistry = UpdateRegistry.getInstance();
         this.updater = new PiCoreUpdater(this);
 
-        // 2. Register Server-wide 3-Tier Menu Security Guard
+        // 2. Register Server-wide 3-Tier Menu Security Guard & Prompt Listener
         getServer().getPluginManager().registerEvents(new PiMenuGuard(), this);
+        org.illustro.picore.menu.PiPrompt.register(this);
 
         // 3. Register Commands & Tab Completer
         if (getCommand("picore") != null) {

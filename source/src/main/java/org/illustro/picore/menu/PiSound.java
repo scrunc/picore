@@ -41,6 +41,10 @@ public final class PiSound {
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.7f, increment ? 1.2f : 0.8f);
     }
 
+    public static void step(Player player) {
+        step(player, true);
+    }
+
     /** Page turn flutter (navigating previous / next in paginated menus). */
     public static void page(Player player) {
         if (player == null) return;

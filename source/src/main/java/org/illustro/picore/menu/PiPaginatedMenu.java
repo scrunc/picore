@@ -184,4 +184,33 @@ public class PiPaginatedMenu<T> {
 
         menu.open(player);
     }
+
+    /**
+     * Refreshes the content items on the player's currently open page in-place without closing the inventory.
+     */
+    public void refreshPage(Player player, int page) {
+        if (player == null || !player.isOnline()) return;
+        int maxPages = getMaxPages();
+        int currentPage = Math.max(0, Math.min(maxPages - 1, page));
+        if (player.getOpenInventory() != null && player.getOpenInventory().getTopInventory().getHolder() instanceof PiMenuHolder holder) {
+            int capacity = layout.getPageCapacity();
+            int startIdx = currentPage * capacity;
+            int endIdx = Math.min(startIdx + capacity, items.size());
+            int[] contentSlots = layout.getContentSlots();
+
+            for (int i = 0; i < capacity; i++) {
+                int targetSlot = contentSlots[i];
+                int itemIdx = startIdx + i;
+                if (itemIdx < endIdx) {
+                    T data = items.get(itemIdx);
+                    PiButton btn = itemConverter.apply(data);
+                    holder.updateSlot(targetSlot, btn);
+                } else {
+                    holder.updateSlot(targetSlot, PiButton.create(Material.AIR, " "));
+                }
+            }
+        } else {
+            openPage(player, page);
+        }
+    }
 }

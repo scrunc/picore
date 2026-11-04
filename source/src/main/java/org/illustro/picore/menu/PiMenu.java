@@ -17,7 +17,7 @@ import java.util.function.Consumer;
 /**
  * Fluent builder for creating interactive inventory menus in PiCore.
  * Automatically marks buttons with PDC anti-theft stamps and handles slot
- * mapping.
+ * mapping. Supports live in-place slot updating and whole-menu refreshes.
  */
 public class PiMenu {
 
@@ -122,6 +122,32 @@ public class PiMenu {
 
     public void open(Player player) {
         player.openInventory(build());
+    }
+
+    /**
+     * Updates an individual slot in-place on the player's currently open inventory without closing it.
+     */
+    public void updateSlot(Player player, int slot, PiButton button) {
+        if (slot < 0 || slot >= rows * 9) return;
+        buttons.put(slot, button);
+        if (player != null && player.isOnline() && player.getOpenInventory() != null) {
+            Inventory top = player.getOpenInventory().getTopInventory();
+            if (top.getHolder() instanceof PiMenuHolder h && h.getMenu() == this) {
+                h.updateSlot(slot, button);
+            }
+        }
+    }
+
+    /**
+     * Re-renders all buttons in-place on the player's currently open inventory without closing it.
+     */
+    public void refresh(Player player) {
+        if (player != null && player.isOnline() && player.getOpenInventory() != null) {
+            Inventory top = player.getOpenInventory().getTopInventory();
+            if (top.getHolder() instanceof PiMenuHolder h && h.getMenu() == this) {
+                h.refresh();
+            }
+        }
     }
 
     public static void stampPdc(ItemStack item) {

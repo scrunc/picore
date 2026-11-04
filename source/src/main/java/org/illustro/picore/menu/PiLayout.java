@@ -95,7 +95,30 @@ public enum PiLayout {
             },
             45, 53, 49, -1,
             false
+    ),
+
+    /**
+     * 6-row (54-slot) vertical side-tabbed layout (used for cosmetics, hub tabs, multi-category galleries).
+     * Tabs: 4 vertical tabs in column 0 (slots 9, 18, 27, 36).
+     * Divider: 4 pane divider slots in column 1 (slots 10, 19, 28, 37).
+     * Content: 24 slots across columns 2-7 (slots 11-16, 20-25, 29-34, 38-43).
+     * Navigation: Prev (45), Back/Indicator (49), Next (53).
+     * Header: Center slot 4.
+     */
+    TABBED_6ROW(
+            6,
+            new int[]{
+                    11, 12, 13, 14, 15, 16,
+                    20, 21, 22, 23, 24, 25,
+                    29, 30, 31, 32, 33, 34,
+                    38, 39, 40, 41, 42, 43
+            },
+            45, 53, 49, 4,
+            false
     );
+
+    public static final int[] TAB_SLOTS_6ROW = {9, 18, 27, 36};
+    public static final int[] DIVIDER_SLOTS_6ROW = {10, 19, 28, 37};
 
     private final int rows;
     private final int[] contentSlots;
