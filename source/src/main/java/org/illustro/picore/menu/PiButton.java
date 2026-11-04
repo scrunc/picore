@@ -338,13 +338,16 @@ public class PiButton {
             p.playSound(p.getLocation(), sound, soundVolume, soundPitch);
         }
 
+        boolean specificHandled = false;
         if (e.isLeftClick() && onLeftClick != null) {
             onLeftClick.accept(p, e);
+            specificHandled = true;
         } else if (e.isRightClick() && onRightClick != null) {
             onRightClick.accept(p, e);
+            specificHandled = true;
         }
 
-        if (onClick != null) {
+        if (!specificHandled && onClick != null) {
             onClick.accept(p, e);
         }
     }

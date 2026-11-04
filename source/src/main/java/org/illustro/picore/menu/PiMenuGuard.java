@@ -39,6 +39,8 @@ public class PiMenuGuard implements Listener {
     // Static event deduplication across multiple plugin registrations / listeners
     private static final Set<InventoryClickEvent> PROCESSED_CLICKS =
             Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Set<InventoryCloseEvent> PROCESSED_CLOSES =
+            Collections.newSetFromMap(new WeakHashMap<>());
 
     // Micro-debounce per player (50ms / 1 tick) to protect against mouse switch bounce / chatter
     private static final Map<UUID, Long> LAST_CLICK_MS = new ConcurrentHashMap<>();
@@ -113,6 +115,7 @@ public class PiMenuGuard implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onMenuClose(InventoryCloseEvent e) {
+        if (!PROCESSED_CLOSES.add(e)) return;
         if (e.getInventory().getHolder() instanceof PiMenuHolder holder) {
             if (e.getPlayer() instanceof Player player) {
                 holder.getMenu().handleClose(player);
