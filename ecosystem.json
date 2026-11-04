@@ -36,9 +36,9 @@
   },
   "PixelUtilities": {
     "latest": "0.1.0",
-    "min_core_version": "1.0.0",
+    "min_core_version": "1.2.0",
     "mandatory": false,
-    "notes": "Utility helpers, hex chat formatting, and performance patches.",
+    "notes": "Migrated detain, scheduler, vote, vote shop, spy replays, timeline, and staff mode GUIs onto PiCore universal menu engine.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   },
   "LivingNPC": {
