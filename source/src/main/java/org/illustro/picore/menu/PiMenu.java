@@ -5,6 +5,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -12,12 +13,13 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
  * Fluent builder for creating interactive inventory menus in PiCore.
  * Automatically marks buttons with PDC anti-theft stamps and handles slot
- * mapping. Supports live in-place slot updating and whole-menu refreshes.
+ * mapping. Supports live in-place slot updating, whole-menu refreshes, and bottom inventory interactions.
  */
 public class PiMenu {
 
@@ -27,6 +29,7 @@ public class PiMenu {
     private final int rows;
     private final Map<Integer, PiButton> buttons = new HashMap<>();
     private Consumer<Player> onClose;
+    private BiConsumer<Player, InventoryClickEvent> onBottomClick;
 
     public PiMenu(String title, int rows) {
         this.title = ChatColor.translateAlternateColorCodes('&', title);
@@ -96,6 +99,25 @@ public class PiMenu {
     public void handleClose(Player player) {
         if (onClose != null)
             onClose.accept(player);
+    }
+
+    /**
+     * Registers a click handler for clicks in the player's bottom inventory while this menu is open.
+     * Useful for deposit slots, item pickers, and selling workflows.
+     */
+    public PiMenu onBottomClick(BiConsumer<Player, InventoryClickEvent> handler) {
+        this.onBottomClick = handler;
+        return this;
+    }
+
+    public boolean hasBottomClickHandler() {
+        return onBottomClick != null;
+    }
+
+    public void handleBottomClick(Player player, InventoryClickEvent event) {
+        if (onBottomClick != null) {
+            onBottomClick.accept(player, event);
+        }
     }
 
     public PiButton getButton(int slot) {

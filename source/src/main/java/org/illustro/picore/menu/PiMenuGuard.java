@@ -71,6 +71,10 @@ public class PiMenuGuard implements Listener {
                 if (button != null) {
                     button.handleClick(player, e);
                 }
+            } else if (clicked != null && clicked.equals(e.getView().getBottomInventory())) {
+                if (holder.getMenu().hasBottomClickHandler()) {
+                    holder.getMenu().handleBottomClick(player, e);
+                }
             }
         }
     }
