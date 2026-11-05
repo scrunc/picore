@@ -36,6 +36,9 @@ public class PiMenu {
     private BiConsumer<Player, InventoryClickEvent> onBottomClick;
     private BiConsumer<Player, InventoryDragEvent> onDrag;
     private boolean allowBottomInventoryPickup = false;
+    private final java.util.Set<Integer> depositSlots = new java.util.HashSet<>();
+    private java.util.function.BiConsumer<Player, java.util.Map<Integer, ItemStack>> onDepositSave;
+    private boolean returnDepositsOnClose = true;
 
     public PiMenu(String title, int rows) {
         this.title = PiText.component(title != null ? title : "");
@@ -172,15 +175,87 @@ public class PiMenu {
         return rows * 9;
     }
 
+    /**
+     * Designates specific slots as deposit / canvas slots where players can place and take real items
+     * (e.g. GiftSendGUI, KitEditor, OrdersGUI, BountyGUI, ShopEditor).
+     */
+    public PiMenu allowDepositSlots(int... slots) {
+        if (slots != null) {
+            for (int s : slots) {
+                if (s >= 0 && s < rows * 9) {
+                    depositSlots.add(s);
+                }
+            }
+        }
+        return this;
+    }
+
+    public PiMenu allowDepositSlots(java.util.Collection<Integer> slots) {
+        if (slots != null) {
+            for (int s : slots) {
+                if (s >= 0 && s < rows * 9) {
+                    depositSlots.add(s);
+                }
+            }
+        }
+        return this;
+    }
+
+    public boolean isDepositSlot(int slot) {
+        return depositSlots.contains(slot);
+    }
+
+    public java.util.Set<Integer> getDepositSlots() {
+        return java.util.Collections.unmodifiableSet(depositSlots);
+    }
+
+    public boolean hasDepositSlots() {
+        return !depositSlots.isEmpty();
+    }
+
+    /**
+     * Handler invoked when the menu is closed, passing all non-empty real items currently sitting in deposit slots.
+     */
+    public PiMenu onDepositSave(java.util.function.BiConsumer<Player, java.util.Map<Integer, ItemStack>> handler) {
+        this.onDepositSave = handler;
+        return this;
+    }
+
+    public boolean hasDepositSaveHandler() {
+        return onDepositSave != null;
+    }
+
+    public void handleDepositSave(Player player, java.util.Map<Integer, ItemStack> deposits) {
+        if (onDepositSave != null) {
+            onDepositSave.accept(player, deposits);
+        }
+    }
+
+    /**
+     * Whether items remaining in deposit slots when the menu closes should be returned to the player's inventory
+     * (or dropped at feet if inventory is full). Default is true.
+     */
+    public PiMenu returnDepositsOnClose(boolean returnOnClose) {
+        this.returnDepositsOnClose = returnOnClose;
+        return this;
+    }
+
+    public boolean isReturnDepositsOnClose() {
+        return returnDepositsOnClose;
+    }
+
     public Inventory build() {
         PiMenuHolder holder = new PiMenuHolder(this);
         Inventory inv = Bukkit.createInventory(holder, rows * 9, title);
         holder.setInventory(inv);
 
         for (Map.Entry<Integer, PiButton> entry : buttons.entrySet()) {
+            int slot = entry.getKey();
             ItemStack icon = entry.getValue().getIcon().clone();
-            stampPdc(icon);
-            inv.setItem(entry.getKey(), icon);
+            if (!isDepositSlot(slot)) {
+                stampPdc(icon);
+            }
+            inv.setItem(slot, icon);
         }
         return inv;
     }

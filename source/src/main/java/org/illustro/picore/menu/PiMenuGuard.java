@@ -1,5 +1,6 @@
 package org.illustro.picore.menu;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -18,6 +19,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -25,12 +27,63 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 3-Tier Defense-in-Depth anti-theft and exploit guard for PiCore.
+ * 3-Tier Defense-in-Depth anti-theft, deposit canvas, and exploit guard for PiCore.
+ * Supports:
+ * - GlitchSink quarantine hooks (routing intercepted menu items to ItemTracker instead of silent deletion)
+ * - Deposit / canvas slots for items placement and retrieval (GiftSend, KitEditor, Orders, Bounty, ShopEditor)
+ * - 200ms click debounce to absorb hardware mouse chatter and accidental double clicks
  */
 public class PiMenuGuard implements Listener {
 
-    private static final NamespacedKey KEY_PICORE = new NamespacedKey("picore", "gui");
-    private static final NamespacedKey KEY_LEGACY = new NamespacedKey("pixelprofiler", "gui");
+    public static final NamespacedKey KEY_PICORE = new NamespacedKey("picore", "gui");
+    public static final NamespacedKey KEY_LEGACY = new NamespacedKey("pixelprofiler", "gui");
+
+    /**
+     * Sink where confiscated glitched menu items are routed instead of being silently deleted.
+     * Implemented by ItemTracker (/it glitched) or security quarantine modules.
+     */
+    public interface GlitchSink {
+        /**
+         * Confiscate a stamped item swept from a player.
+         * @param player The player holding the glitched item.
+         * @param stamped The glitched ItemStack.
+         * @param source The origin of the confiscation (e.g. "close", "join", "cursor").
+         * @return A harmless replacement item (such as a paper receipt) to leave in the inventory,
+         *         or null to clear the slot.
+         */
+        ItemStack onConfiscate(Player player, ItemStack stamped, String source);
+    }
+
+    private static volatile GlitchSink glitchSink = null;
+
+    public static void setGlitchSink(GlitchSink sink) {
+        glitchSink = sink;
+    }
+
+    public static GlitchSink getGlitchSink() {
+        return glitchSink;
+    }
+
+    /** Remove the menu-decoration stamp (mutates + returns copy) — used before quarantining so reclaimed items won't re-sweep. */
+    public static ItemStack untag(ItemStack item) {
+        if (item == null) return null;
+        ItemStack copy = item.clone();
+        PiMenu.unstampPdc(copy);
+        return copy;
+    }
+
+    /** True if this item carries the menu-decoration stamp. */
+    public static boolean tagged(ItemStack item) {
+        return isStamped(item);
+    }
+
+    public static boolean isStamped(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return false;
+        var pdc = meta.getPersistentDataContainer();
+        return pdc.has(KEY_PICORE, PersistentDataType.BYTE) || pdc.has(KEY_LEGACY, PersistentDataType.BYTE);
+    }
 
     private static final Set<InventoryClickEvent> PROCESSED_CLICKS =
             Collections.newSetFromMap(new WeakHashMap<>());
@@ -66,8 +119,24 @@ public class PiMenuGuard implements Listener {
                 return;
             }
 
-            // Top inventory clicks are always cancelled so GUI items can never be taken or overwritten directly
+            // Top inventory clicks
             if (clicked != null && clicked.equals(top)) {
+                int slot = e.getSlot();
+
+                // Deposit slot handling
+                if (menu.isDepositSlot(slot)) {
+                    // Block placing stamped decorative items into deposit slots
+                    ItemStack cursor = e.getCursor();
+                    if (isStamped(cursor)) {
+                        e.setCancelled(true);
+                        sweepPlayerInventory(player, "deposit_cursor_stamped");
+                        return;
+                    }
+                    e.setCancelled(false);
+                    return;
+                }
+
+                // Decorative / action button slot: always cancel so items can never be taken
                 e.setCancelled(true);
 
                 long now = System.currentTimeMillis();
@@ -77,7 +146,6 @@ public class PiMenuGuard implements Listener {
                 }
                 LAST_CLICK_MS.put(player.getUniqueId(), now);
 
-                int slot = e.getSlot();
                 PiButton button = menu.getButton(slot);
                 if (button != null) {
                     button.handleClick(player, e);
@@ -87,10 +155,17 @@ public class PiMenuGuard implements Listener {
 
             // Bottom inventory clicks
             if (clicked != null && clicked.equals(e.getView().getBottomInventory())) {
-                if (menu.isBottomInventoryPickupAllowed()) {
-                    // Block shift-clicking items from bottom inventory into the top GUI
+                boolean allowBottom = menu.isBottomInventoryPickupAllowed() || menu.hasDepositSlots();
+                if (allowBottom) {
                     if (e.isShiftClick() || e.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
-                        e.setCancelled(true);
+                        if (!menu.hasDepositSlots()) {
+                            e.setCancelled(true);
+                        } else {
+                            if (isStamped(e.getCurrentItem())) {
+                                e.setCancelled(true);
+                                sweepPlayerInventory(player, "bottom_shift_stamped");
+                            }
+                        }
                     }
                 } else {
                     e.setCancelled(true);
@@ -109,7 +184,7 @@ public class PiMenuGuard implements Listener {
             }
 
             // Clicking outside the window while holding a cursor item
-            if (!menu.isBottomInventoryPickupAllowed()) {
+            if (!menu.isBottomInventoryPickupAllowed() && !menu.hasDepositSlots()) {
                 e.setCancelled(true);
             }
         }
@@ -121,13 +196,31 @@ public class PiMenuGuard implements Listener {
         if (top.getHolder() instanceof PiMenuHolder holder) {
             PiMenu menu = holder.getMenu();
             int topSize = top.getSize();
-            boolean touchesTop = e.getRawSlots().stream().anyMatch(rawSlot -> rawSlot < topSize);
 
-            if (touchesTop || !menu.isBottomInventoryPickupAllowed()) {
+            boolean touchesNonDepositTop = false;
+            for (int rawSlot : e.getRawSlots()) {
+                if (rawSlot < topSize) {
+                    if (!menu.isDepositSlot(rawSlot)) {
+                        touchesNonDepositTop = true;
+                        break;
+                    }
+                }
+            }
+
+            boolean allowBottom = menu.isBottomInventoryPickupAllowed() || menu.hasDepositSlots();
+            if (touchesNonDepositTop || (!allowBottom && e.getRawSlots().stream().anyMatch(rawSlot -> rawSlot >= topSize))) {
                 e.setCancelled(true);
             }
 
-            if (touchesTop && menu.hasDragHandler() && e.getWhoClicked() instanceof Player player) {
+            // Block dragging stamped items into deposit slots
+            if (isStamped(e.getOldCursor())) {
+                e.setCancelled(true);
+                if (e.getWhoClicked() instanceof Player player) {
+                    sweepPlayerInventory(player, "drag_stamped");
+                }
+            }
+
+            if (menu.hasDragHandler() && e.getWhoClicked() instanceof Player player) {
                 menu.handleDrag(player, e);
             }
         }
@@ -153,7 +246,7 @@ public class PiMenuGuard implements Listener {
         if (isStamped(current) || isStamped(cursor) || hotbarSuspicious) {
             e.setCancelled(true);
             if (e.getWhoClicked() instanceof Player p) {
-                sweepPlayerInventory(p);
+                sweepPlayerInventory(p, "backstop_pdc");
             }
         }
     }
@@ -163,18 +256,46 @@ public class PiMenuGuard implements Listener {
         if (!PROCESSED_CLOSES.add(e)) return;
         if (e.getInventory().getHolder() instanceof PiMenuHolder holder) {
             if (e.getPlayer() instanceof Player player) {
+                PiMenu menu = holder.getMenu();
                 boolean suppressed = SUPPRESSED_CLOSES.remove(player.getUniqueId());
                 if (!suppressed) {
-                    holder.getMenu().handleClose(player);
+                    menu.handleClose(player);
                 }
-                sweepPlayerInventory(player);
+
+                // Handle deposit slots save and return on close
+                if (menu.hasDepositSlots()) {
+                    Inventory inv = e.getInventory();
+                    Map<Integer, ItemStack> deposits = new HashMap<>();
+                    for (int slot : menu.getDepositSlots()) {
+                        ItemStack item = inv.getItem(slot);
+                        if (item != null && item.getType() != Material.AIR && !isStamped(item)) {
+                            deposits.put(slot, item);
+                        }
+                    }
+
+                    if (menu.hasDepositSaveHandler()) {
+                        menu.handleDepositSave(player, deposits);
+                    }
+
+                    if (menu.isReturnDepositsOnClose()) {
+                        for (Map.Entry<Integer, ItemStack> entry : deposits.entrySet()) {
+                            inv.setItem(entry.getKey(), new ItemStack(Material.AIR));
+                            var leftovers = player.getInventory().addItem(entry.getValue());
+                            for (ItemStack leftover : leftovers.values()) {
+                                player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+                            }
+                        }
+                    }
+                }
+
+                sweepPlayerInventory(player, "menu_close");
             }
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent e) {
-        sweepPlayerInventory(e.getPlayer());
+        sweepPlayerInventory(e.getPlayer(), "player_join");
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -184,36 +305,42 @@ public class PiMenuGuard implements Listener {
         SUPPRESSED_CLOSES.remove(id);
     }
 
-    private boolean isStamped(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return false;
-        ItemMeta meta = item.getItemMeta();
-        if (meta == null) return false;
-        var pdc = meta.getPersistentDataContainer();
-        return pdc.has(KEY_PICORE, PersistentDataType.BYTE) || pdc.has(KEY_LEGACY, PersistentDataType.BYTE);
+    public static void sweepPlayerInventory(Player player) {
+        sweepPlayerInventory(player, "sweep");
     }
 
-    public static void sweepPlayerInventory(Player player) {
+    public static void sweepPlayerInventory(Player player, String source) {
+        if (player == null) return;
         boolean cleaned = false;
+        GlitchSink sink = glitchSink;
+
         for (int i = 0; i < player.getInventory().getSize(); i++) {
             ItemStack item = player.getInventory().getItem(i);
-            if (item != null && item.hasItemMeta()) {
-                var pdc = item.getItemMeta().getPersistentDataContainer();
-                if (pdc.has(KEY_PICORE, PersistentDataType.BYTE) || pdc.has(KEY_LEGACY, PersistentDataType.BYTE)) {
-                    player.getInventory().setItem(i, new ItemStack(Material.AIR));
-                    cleaned = true;
-                }
-            }
-        }
-        ItemStack cursor = player.getItemOnCursor();
-        if (cursor != null && cursor.hasItemMeta()) {
-            var pdc = cursor.getItemMeta().getPersistentDataContainer();
-            if (pdc.has(KEY_PICORE, PersistentDataType.BYTE) || pdc.has(KEY_LEGACY, PersistentDataType.BYTE)) {
-                player.setItemOnCursor(new ItemStack(Material.AIR));
+            if (isStamped(item)) {
+                ItemStack replacement = (sink != null) ? safeConfiscate(sink, player, item, source) : null;
+                player.getInventory().setItem(i, replacement != null ? replacement : new ItemStack(Material.AIR));
                 cleaned = true;
             }
         }
+        ItemStack cursor = player.getItemOnCursor();
+        if (isStamped(cursor)) {
+            if (sink != null) {
+                safeConfiscate(sink, player, cursor, (source != null ? source : "sweep") + ":cursor");
+            }
+            player.setItemOnCursor(new ItemStack(Material.AIR));
+            cleaned = true;
+        }
         if (cleaned) {
             player.updateInventory();
+        }
+    }
+
+    private static ItemStack safeConfiscate(GlitchSink sink, Player player, ItemStack stamped, String source) {
+        try {
+            return sink.onConfiscate(player, stamped, source);
+        } catch (Throwable t) {
+            Bukkit.getLogger().warning("[PiCore] GlitchSink error: " + t.getMessage());
+            return null;
         }
     }
 }

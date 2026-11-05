@@ -13,13 +13,14 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.illustro.picore.utils.PiText;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * Universal interactive prompt system for capturing text and numeric input from players.
+ * Universal interactive prompt system for capturing text, integer, decimal, and economy inputs from players.
  * Listens to Paper's AsyncChatEvent (with legacy fallback) at LOWEST priority,
  * enforces prompt timeouts, and delivers all responses on the Bukkit primary thread.
  */
@@ -102,7 +103,8 @@ public final class PiPrompt {
     ) {
         text(plugin, player, promptTitle, currentValue + " [" + min + " - " + max + "]", input -> {
             try {
-                int val = Integer.parseInt(input.trim());
+                String clean = input.replaceAll("[, ]", "").trim();
+                int val = Integer.parseInt(clean);
                 if (val < min || val > max) {
                     player.sendMessage(ChatColor.RED + "Value must be between " + min + " and " + max + ".");
                     PiSound.deny(player);
@@ -117,6 +119,83 @@ public final class PiPrompt {
                 number(plugin, player, promptTitle, currentValue, min, max, onConfirm, onCancel);
             }
         }, onCancel);
+    }
+
+    /**
+     * Captures a floating-point decimal value, supporting standard notation (e.g. 10.50, 250).
+     */
+    public static void decimal(
+            Plugin plugin,
+            Player player,
+            String promptTitle,
+            double currentValue,
+            double min,
+            double max,
+            Consumer<Double> onConfirm,
+            Runnable onCancel
+    ) {
+        String valStr = (currentValue == (long) currentValue)
+                ? String.format("%d", (long) currentValue)
+                : String.format(Locale.ROOT, "%.2f", currentValue);
+
+        text(plugin, player, promptTitle, valStr + " [" + min + " - " + max + "]", input -> {
+            try {
+                String clean = input.replaceAll("[$€£, ]", "").trim();
+                double val = parseShorthand(clean);
+                if (val < min || val > max) {
+                    player.sendMessage(ChatColor.RED + "Value must be between " + min + " and " + max + ".");
+                    PiSound.deny(player);
+                    decimal(plugin, player, promptTitle, currentValue, min, max, onConfirm, onCancel);
+                    return;
+                }
+                PiSound.success(player);
+                if (onConfirm != null) onConfirm.accept(val);
+            } catch (Exception e) {
+                player.sendMessage(ChatColor.RED + "Invalid decimal number format. Examples: 10, 25.50, 1.5k");
+                PiSound.deny(player);
+                decimal(plugin, player, promptTitle, currentValue, min, max, onConfirm, onCancel);
+            }
+        }, onCancel);
+    }
+
+    /**
+     * Financial / currency prompt. Supports dollar signs, commas, and multipliers (e.g. $10.50, 250k, 1.5m).
+     */
+    public static void money(
+            Plugin plugin,
+            Player player,
+            String promptTitle,
+            double currentValue,
+            double min,
+            double max,
+            Consumer<Double> onConfirm,
+            Runnable onCancel
+    ) {
+        decimal(plugin, player, promptTitle, currentValue, min, max, onConfirm, onCancel);
+    }
+
+    /**
+     * Parses numeric strings supporting shorthand multipliers (k, m, b, t).
+     * e.g. "1.5k" -> 1500.0, "2.5m" -> 2500000.0
+     */
+    public static double parseShorthand(String s) throws NumberFormatException {
+        if (s == null || s.isBlank()) throw new NumberFormatException("Empty input");
+        String clean = s.trim().toLowerCase(Locale.ROOT);
+        double multiplier = 1.0;
+        if (clean.endsWith("k")) {
+            multiplier = 1_000.0;
+            clean = clean.substring(0, clean.length() - 1).trim();
+        } else if (clean.endsWith("m")) {
+            multiplier = 1_000_000.0;
+            clean = clean.substring(0, clean.length() - 1).trim();
+        } else if (clean.endsWith("b")) {
+            multiplier = 1_000_000_000.0;
+            clean = clean.substring(0, clean.length() - 1).trim();
+        } else if (clean.endsWith("t")) {
+            multiplier = 1_000_000_000_000.0;
+            clean = clean.substring(0, clean.length() - 1).trim();
+        }
+        return Double.parseDouble(clean) * multiplier;
     }
 
     public static boolean isAwaiting(Player player) {
