@@ -60,7 +60,11 @@ public class PiMenu {
 
     public PiMenu button(int slot, PiButton button) {
         if (slot >= 0 && slot < rows * 9) {
-            buttons.put(slot, button);
+            if (button == null) {
+                buttons.remove(slot);
+            } else {
+                buttons.put(slot, button);
+            }
         }
         return this;
     }
@@ -251,7 +255,9 @@ public class PiMenu {
 
         for (Map.Entry<Integer, PiButton> entry : buttons.entrySet()) {
             int slot = entry.getKey();
-            ItemStack icon = entry.getValue().getIcon().clone();
+            PiButton btn = entry.getValue();
+            if (btn == null || btn.getIcon() == null) continue;
+            ItemStack icon = btn.getIcon().clone();
             if (!isDepositSlot(slot)) {
                 stampPdc(icon);
             }
@@ -272,7 +278,11 @@ public class PiMenu {
 
     public void updateSlot(Player player, int slot, PiButton button) {
         if (slot < 0 || slot >= rows * 9) return;
-        buttons.put(slot, button);
+        if (button == null) {
+            buttons.remove(slot);
+        } else {
+            buttons.put(slot, button);
+        }
         if (player != null && player.isOnline() && player.getOpenInventory() != null) {
             Inventory top = player.getOpenInventory().getTopInventory();
             if (top.getHolder() instanceof PiMenuHolder h && h.getMenu() == this) {

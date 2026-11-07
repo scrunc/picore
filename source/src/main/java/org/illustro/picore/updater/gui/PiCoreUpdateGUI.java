@@ -102,7 +102,7 @@ public class PiCoreUpdateGUI {
             String latest = client.getLatestReleaseVersion() != null ? "v" + client.getLatestReleaseVersion() : "Unknown";
 
             java.util.List<String> lore = new java.util.ArrayList<>();
-            lore.add(ChatColor.DARK_GRAY + "Registered BMS Module");
+            lore.add(ChatColor.DARK_GRAY + "Registered Module");
             lore.add("");
             lore.add(ChatColor.GRAY + "Status:       " + client.getStatus().getBadge());
             lore.add(ChatColor.GRAY + "Installed:    " + ChatColor.WHITE + "v" + client.getInstalledVersion());

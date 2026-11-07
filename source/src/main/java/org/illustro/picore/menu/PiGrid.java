@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * Universal inventory slot layouts and grid math utilities for PiCore menus.
- * Replaces repetitive hardcoded slot arrays and border loops across all BMS plugins.
+ * Replaces repetitive hardcoded slot arrays and border loops across declarative menus.
  */
 public final class PiGrid {
 

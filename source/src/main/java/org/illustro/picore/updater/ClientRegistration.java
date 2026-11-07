@@ -65,7 +65,7 @@ public class ClientRegistration {
     }
 
     public String getDownloadNotice() {
-        return downloadNotice != null ? downloadNotice : "Download from your customer portal / DevsDiary.";
+        return downloadNotice != null ? downloadNotice : "Check the official release page for updates.";
     }
 
     public void setDownloadNotice(String downloadNotice) {

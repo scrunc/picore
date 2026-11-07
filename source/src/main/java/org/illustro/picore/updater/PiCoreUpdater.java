@@ -25,13 +25,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Manages release checks and update notices for PiCore and registered BMS plugins.
- * Reads the public ecosystem manifest (ecosystem.json) from scrunc/picore on GitHub.
+ * Manages release checks and update notices for PiCore and registered modules.
+ * Reads the public ecosystem manifest (ecosystem.json) from GitHub.
  */
 public class PiCoreUpdater {
-
-    private static final String MANIFEST_URL = "https://raw.githubusercontent.com/scrunc/picore/main/ecosystem.json";
-    private static final String CORE_REPO = "scrunc/picore";
 
     private final PiCore plugin;
     private String latestCoreVersion;
@@ -43,6 +40,14 @@ public class PiCoreUpdater {
     public PiCoreUpdater(PiCore plugin) {
         this.plugin = plugin;
         this.latestCoreVersion = plugin.getDescription().getVersion();
+    }
+
+    public String getCoreRepo() {
+        return plugin.getConfig().getString("updater.github-repo", "scrunc/picore");
+    }
+
+    public String getManifestUrl() {
+        return "https://raw.githubusercontent.com/" + getCoreRepo() + "/main/ecosystem.json";
     }
 
     public String getLatestCoreVersion() {
@@ -83,7 +88,7 @@ public class PiCoreUpdater {
             try {
                 // 1. Fetch remote release & manifest HTTP responses asynchronously
                 coreJson = fetchUrl(CORE_REPO_URL());
-                manifestJson = fetchUrl(MANIFEST_URL);
+                manifestJson = fetchUrl(getManifestUrl());
 
                 // Fallback to bundled ecosystem.json if remote is unreachable
                 if (manifestJson == null || manifestJson.trim().isEmpty()) {
@@ -209,7 +214,7 @@ public class PiCoreUpdater {
             File targetFile = new File(updateFolder, "PiCore.jar");
             plugin.getLogger().info("[PiCoreUpdater] Staging PiCore update into " + targetFile.getPath() + "...");
 
-            boolean ok = PiCoreBootstrap.downloadCore(plugin, targetFile, CORE_REPO);
+            boolean ok = PiCoreBootstrap.downloadCore(plugin, targetFile, getCoreRepo());
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (ok && targetFile.exists() && targetFile.length() > 0) {
@@ -264,7 +269,7 @@ public class PiCoreUpdater {
     }
 
     private String CORE_REPO_URL() {
-        return "https://api.github.com/repos/" + CORE_REPO + "/releases/latest";
+        return "https://api.github.com/repos/" + getCoreRepo() + "/releases/latest";
     }
 
     private String fetchUrl(String urlString) {

@@ -3,10 +3,16 @@ version: 1.2.0
 main: org.illustro.picore.PiCore
 api-version: '1.21'
 author: illustro
-description: Universal core framework and spine for all BMS custom plugins.
+description: Universal declarative GUI engine, dynamic ladders, and server core framework.
+softdepend:
+  - PlaceholderAPI
 commands:
   picore:
     description: PiCore system commands and status.
     aliases: [pic]
     permission: picore.admin
+  primalvar:
+    description: PrimalVar dynamic variable and ladder system.
+    aliases: [pv, dynvar, dv, dyn]
+    permission: picore.primalvar.admin
 

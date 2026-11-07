@@ -19,7 +19,7 @@ import java.util.List;
 
 /**
  * PiCore - Central Core & Unified Framework.
- * Powers menus, security guards, update coordination, and shared services across BMS plugins.
+ * Powers menus, security guards, update coordination, and shared services across custom plugins.
  */
 public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor {
 
@@ -27,6 +27,7 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
 
     private UpdateRegistry updateRegistry;
     private PiCoreUpdater updater;
+    private org.illustro.picore.dynvar.DynVarManager dynVarManager;
 
     public static PiCore getInstance() {
         return instance;
@@ -38,6 +39,10 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
 
     public PiCoreUpdater getUpdater() {
         return updater;
+    }
+
+    public org.illustro.picore.dynvar.DynVarManager getDynVarManager() {
+        return dynVarManager;
     }
 
     @Override
@@ -58,6 +63,21 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
         if (getCommand("picore") != null) {
             getCommand("picore").setExecutor(this);
             getCommand("picore").setTabCompleter(this);
+        }
+
+        // 3b. Initialize PrimalVar System & Hook PlaceholderAPI
+        this.dynVarManager = new org.illustro.picore.dynvar.DynVarManager(this);
+        org.illustro.picore.dynvar.DynVarCommand dvc = new org.illustro.picore.dynvar.DynVarCommand(this, this.dynVarManager);
+        if (getCommand("primalvar") != null) {
+            getCommand("primalvar").setExecutor(dvc);
+            getCommand("primalvar").setTabCompleter(dvc);
+        } else if (getCommand("dynvar") != null) {
+            getCommand("dynvar").setExecutor(dvc);
+            getCommand("dynvar").setTabCompleter(dvc);
+        }
+        if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            new org.illustro.picore.dynvar.DynVarExpansion(this, this.dynVarManager).register();
+            getLogger().info("[PrimalVar] Hooked into PlaceholderAPI (%picore_s_*, %picore_p_*, %picore_l_*, %picore_math:*).");
         }
 
         // 4. Initial async release & compatibility scan based on config
@@ -97,6 +117,9 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
 
     @Override
     public void onDisable() {
+        if (dynVarManager != null) {
+            dynVarManager.savePlayerData();
+        }
         getLogger().info("PiCore disabled.");
         instance = null;
     }

@@ -5,7 +5,7 @@ import org.bukkit.entity.Player;
 
 /**
  * Standardized audio feedback suite for PiCore menus.
- * Ensures consistent auditory cues (clicks, toggles, success, errors) across all BMS plugins.
+ * Ensures consistent auditory cues (clicks, toggles, success, errors) across declarative menus.
  */
 public final class PiSound {
 
