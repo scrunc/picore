@@ -6,6 +6,11 @@ author: illustro
 description: Universal declarative GUI engine, dynamic ladders, and server core framework.
 softdepend:
   - PlaceholderAPI
+  # Optional: PiAudio streams through Simple Voice Chat when it is installed, and stays silent otherwise.
+  - voicechat
+# Downloaded by the server at startup: pure-Java MP3 decoder behind AudioTrack.load(*.mp3).
+libraries:
+  - "com.googlecode.soundlibs:jlayer:1.0.1.4"
 commands:
   picore:
     description: PiCore system commands and status.

@@ -6,6 +6,17 @@ modules:
   # PiMorph — animates a region from one block/display state into another (sweep, meteor, rise, ...).
   # Style packs live in plugins/PiCore/morphs/*.yml.
   morph: true
+  # PiAudio — locational and per-player audio streaming through Simple Voice Chat (silent without it),
+  # plus the shared ffmpeg/yt-dlp locator configured under media: below.
+  audio: true
+
+# Shared media binaries for plugins that decode or download audio. Drop `ffmpeg` (and `yt-dlp`, for
+# downloads) into plugins/PiCore/bin/. On Windows the `.exe` suffix is found automatically. Both are
+# re-checked on every use, so adding them needs no restart.
+media:
+  bin-dir: ""        # blank = plugins/PiCore/bin
+  ffmpeg-path: ""    # blank = <bin-dir>/ffmpeg
+  ytdlp-path: ""     # blank = <bin-dir>/yt-dlp
 
 updater:
   # Automatically check for PiCore updates on startup

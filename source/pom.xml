@@ -71,6 +71,10 @@
             <url>https://oss.sonatype.org/content/groups/public/</url>
         </repository>
         <repository>
+            <id>maxhenkel</id>
+            <url>https://maven.maxhenkel.de/repository/public/</url>
+        </repository>
+        <repository>
             <id>placeholderapi</id>
             <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
         </repository>
@@ -87,6 +91,20 @@
             <groupId>me.clip</groupId>
             <artifactId>placeholderapi</artifactId>
             <version>2.11.6</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Simple Voice Chat server API: optional at runtime, only touched by audio.VoiceChatBridge -->
+        <dependency>
+            <groupId>de.maxhenkel.voicechat</groupId>
+            <artifactId>voicechat-api</artifactId>
+            <version>2.6.20</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- JLayer MP3 decoder: supplied at runtime by the plugin.yml libraries: loader -->
+        <dependency>
+            <groupId>com.googlecode.soundlibs</groupId>
+            <artifactId>jlayer</artifactId>
+            <version>1.0.1.4</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

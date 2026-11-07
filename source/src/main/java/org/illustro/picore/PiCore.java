@@ -29,6 +29,7 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
     private PiCoreUpdater updater;
     private org.illustro.picore.dynvar.DynVarManager dynVarManager;
     private org.illustro.picore.morph.PiMorphService morph;
+    private org.illustro.picore.audio.PiAudioService audio;
 
     public static PiCore getInstance() {
         return instance;
@@ -49,6 +50,16 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
     /** The arena-morph engine, or null when {@code modules.morph} is off. Also published as a Bukkit service. */
     public org.illustro.picore.morph.PiMorph getMorph() {
         return morph;
+    }
+
+    /** The voice-chat audio bridge, or null when {@code modules.audio} is off. Also published as a Bukkit service. */
+    public org.illustro.picore.audio.PiAudio getAudio() {
+        return audio;
+    }
+
+    /** Shared ffmpeg/yt-dlp locator, or null when {@code modules.audio} is off. */
+    public org.illustro.picore.audio.MediaTools getMediaTools() {
+        return audio == null ? null : audio.media();
     }
 
     @Override
@@ -89,6 +100,9 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
         // 3c. Optional engines, published as Bukkit services
         if (getConfig().getBoolean("modules.morph", true)) {
             this.morph = new org.illustro.picore.morph.PiMorphService(this);
+        }
+        if (getConfig().getBoolean("modules.audio", true)) {
+            this.audio = new org.illustro.picore.audio.PiAudioService(this);
         }
 
         // 4. Initial async release & compatibility scan based on config
@@ -134,6 +148,10 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
         if (morph != null) {
             morph.shutdown();
             morph = null;
+        }
+        if (audio != null) {
+            audio.shutdown();
+            audio = null;
         }
         getLogger().info("PiCore disabled.");
         instance = null;

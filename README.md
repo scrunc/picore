@@ -39,6 +39,13 @@ PiCore provides the unified architecture for all custom plugins across the serve
    - Style packs are plain YAML in `plugins/PiCore/morphs/` — drop in a file to add a style.
    - Consumers: `getServer().getServicesManager().load(PiMorph.class)` (or `PiCore.getInstance().getMorph()`), then build a `MorphGrid` and call `morph(...)`.
 
+6. **PiAudio — Voice Chat Audio Bridge** (`org.illustro.picore.audio`, toggle `modules.audio`)
+   - Locational and per-player (static) audio streams through [Simple Voice Chat](https://modrinth.com/plugin/simple-voice-chat), with speech- or music-tuned encoding and live distance updates.
+   - Holds the voice chat connection inside PiCore, so consumer plugins can be reloaded without losing audio.
+   - `AudioTrack` decodes WAV and MP3 into 48 kHz mono frames; `AudioRing` is a PCM ring buffer for live sources.
+   - `MediaTools` locates a shared `ffmpeg` / `yt-dlp` in `plugins/PiCore/bin/`, so one copy serves every plugin.
+   - Simple Voice Chat is optional: without it the service stays registered and consumers simply play silent.
+
 ---
 
 ### Commands & Permissions
