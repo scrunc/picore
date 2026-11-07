@@ -28,6 +28,7 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
     private UpdateRegistry updateRegistry;
     private PiCoreUpdater updater;
     private org.illustro.picore.dynvar.DynVarManager dynVarManager;
+    private org.illustro.picore.morph.PiMorphService morph;
 
     public static PiCore getInstance() {
         return instance;
@@ -43,6 +44,11 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
 
     public org.illustro.picore.dynvar.DynVarManager getDynVarManager() {
         return dynVarManager;
+    }
+
+    /** The arena-morph engine, or null when {@code modules.morph} is off. Also published as a Bukkit service. */
+    public org.illustro.picore.morph.PiMorph getMorph() {
+        return morph;
     }
 
     @Override
@@ -78,6 +84,11 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
         if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             new org.illustro.picore.dynvar.DynVarExpansion(this, this.dynVarManager).register();
             getLogger().info("[PrimalVar] Hooked into PlaceholderAPI (%picore_s_*, %picore_p_*, %picore_l_*, %picore_math:*).");
+        }
+
+        // 3c. Optional engines, published as Bukkit services
+        if (getConfig().getBoolean("modules.morph", true)) {
+            this.morph = new org.illustro.picore.morph.PiMorphService(this);
         }
 
         // 4. Initial async release & compatibility scan based on config
@@ -119,6 +130,10 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
     public void onDisable() {
         if (dynVarManager != null) {
             dynVarManager.savePlayerData();
+        }
+        if (morph != null) {
+            morph.shutdown();
+            morph = null;
         }
         getLogger().info("PiCore disabled.");
         instance = null;

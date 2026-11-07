@@ -33,6 +33,12 @@ PiCore provides the unified architecture for all custom plugins across the serve
    - Auto-discovers running BMS modules and alerts server administrators on join and via `/picore gui`.
    - **Zero auto-downloads for private/premium plugins**: Admins/buyers obtain updates via their customer portal.
 
+5. **PiMorph — Arena Morph Engine** (`org.illustro.picore.morph`, toggle `modules.morph`)
+   - Animates a region from one captured block/display state into another, swapping only the cells that differ.
+   - 14 bundled choreographies: sweep, meteor, spread, rift, veins, spiral, rain, life, collapse, shatter, and the rise family (eruption, geyser, upheaval, springup).
+   - Style packs are plain YAML in `plugins/PiCore/morphs/` — drop in a file to add a style.
+   - Consumers: `getServer().getServicesManager().load(PiMorph.class)` (or `PiCore.getInstance().getMorph()`), then build a `MorphGrid` and call `morph(...)`.
+
 ---
 
 ### Commands & Permissions

@@ -1,6 +1,12 @@
 # PiCore Configuration
 # Central core framework for declarative GUIs, dynamic variables, and server mechanics
 
+# Optional engines bundled with PiCore. Each is published as a Bukkit service for other plugins to use.
+modules:
+  # PiMorph — animates a region from one block/display state into another (sweep, meteor, rise, ...).
+  # Style packs live in plugins/PiCore/morphs/*.yml.
+  morph: true
+
 updater:
   # Automatically check for PiCore updates on startup
   auto-check-on-boot: true
