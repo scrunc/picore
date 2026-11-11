@@ -30,6 +30,8 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
     private org.illustro.picore.dynvar.DynVarManager dynVarManager;
     private org.illustro.picore.morph.PiMorphService morph;
     private org.illustro.picore.audio.PiAudioService audio;
+    private org.illustro.picore.cinematic.PiCinematicService cinematic;
+    private org.illustro.picore.screen.PiScreenService screens;
 
     public static PiCore getInstance() {
         return instance;
@@ -55,6 +57,16 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
     /** The voice-chat audio bridge, or null when {@code modules.audio} is off. Also published as a Bukkit service. */
     public org.illustro.picore.audio.PiAudio getAudio() {
         return audio;
+    }
+
+    /** The cinematic camera engine, or null when {@code modules.cinematic} is off. Also published as a Bukkit service. */
+    public org.illustro.picore.cinematic.PiCinematic getCinematic() {
+        return cinematic;
+    }
+
+    /** In-world map screens, or null when {@code modules.screen} is off. Also published as a Bukkit service. */
+    public org.illustro.picore.screen.PiScreens getScreens() {
+        return screens;
     }
 
     /** Shared ffmpeg/yt-dlp locator, or null when {@code modules.audio} is off. */
@@ -104,6 +116,12 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
         if (getConfig().getBoolean("modules.audio", true)) {
             this.audio = new org.illustro.picore.audio.PiAudioService(this);
         }
+        if (getConfig().getBoolean("modules.cinematic", true)) {
+            this.cinematic = new org.illustro.picore.cinematic.PiCinematicService(this);
+        }
+        if (getConfig().getBoolean("modules.screen", true)) {
+            this.screens = new org.illustro.picore.screen.PiScreenService(this);
+        }
 
         // 4. Initial async release & compatibility scan based on config
         boolean autoCheck = getConfig().getBoolean("updater.auto-check-on-boot", true);
@@ -152,6 +170,14 @@ public class PiCore extends JavaPlugin implements org.bukkit.command.TabExecutor
         if (audio != null) {
             audio.shutdown();
             audio = null;
+        }
+        if (screens != null) {
+            screens.shutdown();
+            screens = null;
+        }
+        if (cinematic != null) {
+            cinematic.shutdown();           // every viewer gets their camera, game mode and position back
+            cinematic = null;
         }
         getLogger().info("PiCore disabled.");
         instance = null;

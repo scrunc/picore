@@ -1,0 +1,49 @@
+name: Release
+
+# Push a tag like v1.5.0 -> build PiCore.jar and publish a GitHub Release whose notes are the tag's own
+# annotation (the changelog) followed by every commit since the previous tag. The public auto-updater
+# (PiCoreUpdater) downloads PiCore.jar from these releases.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build
+        working-directory: source
+        run: mvn -B -q -DskipTests package
+
+      - name: Changelog
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PREV="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          {
+            echo "## PiCore ${TAG}"
+            echo
+            git tag -l --format='%(contents)' "${TAG}"
+            echo
+            echo "### Commits"
+            if [ -n "${PREV}" ]; then RANGE="${PREV}..${TAG}"; else RANGE="${TAG}"; fi
+            git log --no-merges --pretty='- %s (%h)%n%w(0,2,2)%b' "${RANGE}"
+          } > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_NOTES.md
+          files: source/target/PiCore.jar

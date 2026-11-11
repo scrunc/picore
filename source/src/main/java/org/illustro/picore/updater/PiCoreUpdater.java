@@ -71,12 +71,15 @@ public class PiCoreUpdater {
     }
 
     /**
-     * Checks GitHub for PiCore updates and queries the ecosystem.json manifest for client plugin releases.
-     * Remote fetching occurs asynchronously; parsing and registry registration execute safely on the main thread.
+     * Checks GitHub for PiCore updates and queries the ecosystem.json manifest for
+     * client plugin releases.
+     * Remote fetching occurs asynchronously; parsing and registry registration
+     * execute safely on the main thread.
      */
     public void checkAllAsync(Consumer<Boolean> callback) {
         if (isChecking) {
-            if (callback != null) callback.accept(false);
+            if (callback != null)
+                callback.accept(false);
             return;
         }
 
@@ -94,22 +97,26 @@ public class PiCoreUpdater {
                 if (manifestJson == null || manifestJson.trim().isEmpty()) {
                     java.io.InputStream in = plugin.getResource("ecosystem.json");
                     if (in != null) {
-                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                        try (BufferedReader reader = new BufferedReader(
+                                new InputStreamReader(in, StandardCharsets.UTF_8))) {
                             StringBuilder sb = new StringBuilder();
                             String line;
-                            while ((line = reader.readLine()) != null) sb.append(line);
+                            while ((line = reader.readLine()) != null)
+                                sb.append(line);
                             manifestJson = sb.toString();
                         }
                     }
                 }
             } catch (Exception e) {
-                plugin.getLogger().log(Level.WARNING, "[PiCoreUpdater] Error while fetching remote updates: " + e.getMessage(), e);
+                plugin.getLogger().log(Level.WARNING,
+                        "[PiCoreUpdater] Error while fetching remote updates: " + e.getMessage(), e);
             }
 
             final String finalCoreJson = coreJson;
             final String finalManifestJson = manifestJson;
 
-            // 2. Process results on the MAIN thread to ensure 100% Bukkit API & Console thread safety
+            // 2. Process results on the MAIN thread to ensure 100% Bukkit API & Console
+            // thread safety
             Bukkit.getScheduler().runTask(plugin, () -> {
                 try {
                     // Process PiCore release info
@@ -124,41 +131,52 @@ public class PiCoreUpdater {
 
                     isChecking = false;
                     logSummary();
-                    if (callback != null) callback.accept(true);
+                    if (callback != null)
+                        callback.accept(true);
                 } catch (Exception e) {
-                    plugin.getLogger().log(Level.WARNING, "[PiCoreUpdater] Error applying updates: " + e.getMessage(), e);
+                    plugin.getLogger().log(Level.WARNING, "[PiCoreUpdater] Error applying updates: " + e.getMessage(),
+                            e);
                     isChecking = false;
-                    if (callback != null) callback.accept(false);
+                    if (callback != null)
+                        callback.accept(false);
                 }
             });
         });
     }
 
     private void parseCoreRelease(String json) {
-        if (json == null || json.trim().isEmpty()) return;
+        if (json == null || json.trim().isEmpty())
+            return;
         try {
             JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
             if (obj.has("tag_name") && !obj.get("tag_name").isJsonNull()) {
                 this.latestCoreVersion = obj.get("tag_name").getAsString().replaceFirst("^[vV]", "");
-                this.coreReleaseNotes = obj.has("body") && !obj.get("body").isJsonNull() ? obj.get("body").getAsString() : "";
-                int cmp = ClientRegistration.compareVersions(this.latestCoreVersion, plugin.getDescription().getVersion());
+                this.coreReleaseNotes = obj.has("body") && !obj.get("body").isJsonNull() ? obj.get("body").getAsString()
+                        : "";
+                int cmp = ClientRegistration.compareVersions(this.latestCoreVersion,
+                        plugin.getDescription().getVersion());
                 this.coreUpdateAvailable = (cmp > 0);
             }
-        } catch (Exception ignored) { }
+        } catch (Exception ignored) {
+        }
     }
 
     private void processManifest(String manifestJson) {
-        if (manifestJson == null || manifestJson.trim().isEmpty()) return;
+        if (manifestJson == null || manifestJson.trim().isEmpty())
+            return;
         try {
             JsonObject root = JsonParser.parseString(manifestJson).getAsJsonObject();
 
-            // Auto-discover active server plugins that match entries in the ecosystem manifest (Thread Safe on Main Thread)
+            // Auto-discover active server plugins that match entries in the ecosystem
+            // manifest (Thread Safe on Main Thread)
             for (org.bukkit.plugin.Plugin p : Bukkit.getPluginManager().getPlugins()) {
-                if (p == null || p.equals(plugin)) continue;
+                if (p == null || p.equals(plugin))
+                    continue;
                 String matchedKey = findMatchingKey(root, p.getName());
                 if (matchedKey != null && UpdateRegistry.getInstance().getClient(p.getName()) == null) {
                     JsonObject data = root.getAsJsonObject(matchedKey);
-                    String minCore = data.has("min_core_version") ? data.get("min_core_version").getAsString() : "1.0.0";
+                    String minCore = data.has("min_core_version") ? data.get("min_core_version").getAsString()
+                            : "1.0.0";
                     UpdateRegistry.getInstance().register(p, minCore, null);
                 }
             }
@@ -218,45 +236,55 @@ public class PiCoreUpdater {
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (ok && targetFile.exists() && targetFile.length() > 0) {
-                    plugin.getLogger().info("[PiCoreUpdater] Successfully staged PiCore.jar to /plugins/update/. Applied automatically on next reboot.");
-                    if (callback != null) callback.accept(true);
+                    plugin.getLogger().info(
+                            "[PiCoreUpdater] Successfully staged PiCore.jar to /plugins/update/. Applied automatically on next reboot.");
+                    if (callback != null)
+                        callback.accept(true);
                 } else {
                     plugin.getLogger().warning("[PiCoreUpdater] Failed to stage PiCore update from GitHub.");
-                    if (callback != null) callback.accept(false);
+                    if (callback != null)
+                        callback.accept(false);
                 }
             });
         });
     }
 
     /**
-     * Alerts administrators on join if any plugins have available updates or critical mismatches.
+     * Alerts administrators on join if any plugins have available updates or
+     * critical mismatches.
      */
     public void alertAdminIfOutdated(Player player) {
-        if (!player.hasPermission("picore.admin")) return;
+        if (!player.hasPermission("picore.admin"))
+            return;
 
         List<String> alerts = new ArrayList<>();
         if (coreUpdateAvailable) {
-            alerts.add(ChatColor.AQUA + "PiCore" + ChatColor.GRAY + " (v" + plugin.getDescription().getVersion() + " ➔ " + ChatColor.GOLD + "v" + latestCoreVersion + ")");
+            alerts.add(ChatColor.AQUA + "PiCore" + ChatColor.GRAY + " (v" + plugin.getDescription().getVersion() + " ➔ "
+                    + ChatColor.GOLD + "v" + latestCoreVersion + ")");
         }
 
         for (ClientRegistration client : UpdateRegistry.getInstance().getAllClients()) {
             if (client.getStatus() == CompatibilityStatus.UPDATE_AVAILABLE || client.getStatus().isCritical()) {
-                alerts.add(ChatColor.YELLOW + client.getClientName() + ChatColor.GRAY + " (v" + client.getInstalledVersion()
+                alerts.add(ChatColor.YELLOW + client.getClientName() + ChatColor.GRAY + " (v"
+                        + client.getInstalledVersion()
                         + " ➔ " + ChatColor.GOLD + "v" + client.getLatestReleaseVersion() + ")");
             }
         }
 
         if (!alerts.isEmpty()) {
-            player.sendMessage(ChatColor.DARK_GRAY + "«" + ChatColor.AQUA + ChatColor.BOLD + "PiCore" + ChatColor.DARK_GRAY + "» "
+            player.sendMessage(ChatColor.DARK_GRAY + "«" + ChatColor.AQUA + ChatColor.BOLD + "PiCore"
+                    + ChatColor.DARK_GRAY + "» "
                     + ChatColor.GOLD + "Updates are available for: " + String.join(ChatColor.DARK_GRAY + ", ", alerts));
-            player.sendMessage(ChatColor.GRAY + "Type " + ChatColor.YELLOW + "/picore gui" + ChatColor.GRAY + " for full details and release notes.");
+            player.sendMessage(ChatColor.GRAY + "Type " + ChatColor.YELLOW + "/picore gui" + ChatColor.GRAY
+                    + " for full details and release notes.");
         }
     }
 
     private void logSummary() {
         plugin.getLogger().info("=== [PiCore Ecosystem Compatibility Ledger] ===");
-        plugin.getLogger().info("PiCore: v" + plugin.getDescription().getVersion() + " (Latest: v" + latestCoreVersion + ")"
-                + (coreUpdateAvailable ? " [UPDATE AVAILABLE]" : " [UP TO DATE]"));
+        plugin.getLogger()
+                .info("PiCore: v" + plugin.getDescription().getVersion() + " (Latest: v" + latestCoreVersion + ")"
+                        + (coreUpdateAvailable ? " [UPDATE AVAILABLE]" : " [UP TO DATE]"));
 
         for (ClientRegistration c : UpdateRegistry.getInstance().getAllClients()) {
             String note = (c.getLatestReleaseNotes() != null && !c.getLatestReleaseNotes().isEmpty())
@@ -285,7 +313,8 @@ public class PiCoreUpdater {
                 return null;
             }
 
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+            try (BufferedReader br = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                 StringBuilder sb = new StringBuilder();
                 String line;
                 while ((line = br.readLine()) != null) {
@@ -296,7 +325,8 @@ public class PiCoreUpdater {
         } catch (Exception ignored) {
             return null;
         } finally {
-            if (conn != null) conn.disconnect();
+            if (conn != null)
+                conn.disconnect();
         }
     }
 }

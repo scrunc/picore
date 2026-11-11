@@ -30,7 +30,8 @@ public class PiCoreUpdateGUI {
 
     public static void open(Player player) {
         PiCore core = PiCore.getInstance();
-        if (core == null) return;
+        if (core == null)
+            return;
 
         PiCoreUpdater updater = core.getUpdater();
         UpdateRegistry registry = core.getUpdateRegistry();
@@ -43,7 +44,8 @@ public class PiCoreUpdateGUI {
         // Slot 4: PiCore Framework Beacon
         boolean coreUpdate = updater.isCoreUpdateAvailable();
         Material coreMat = coreUpdate ? Material.NETHER_STAR : Material.BEACON;
-        String coreTitle = ChatColor.AQUA + "" + ChatColor.BOLD + "PiCore Framework " + (coreUpdate ? ChatColor.GOLD + "(Update Available!)" : ChatColor.GREEN + "(Up to Date)");
+        String coreTitle = ChatColor.AQUA + "" + ChatColor.BOLD + "PiCore Framework "
+                + (coreUpdate ? ChatColor.GOLD + "(Update Available!)" : ChatColor.GREEN + "(Up to Date)");
 
         String lastCheck = (updater.getLastCheckedTime() > 0)
                 ? DATE_FORMAT.format(Instant.ofEpochMilli(updater.getLastCheckedTime()))
@@ -55,11 +57,11 @@ public class PiCoreUpdateGUI {
                         ChatColor.DARK_GRAY + "Core Backbone Architecture",
                         "",
                         ChatColor.GRAY + "• Installed:  " + ChatColor.WHITE + "v" + core.getDescription().getVersion(),
-                        ChatColor.GRAY + "• Latest:     " + (coreUpdate ? ChatColor.GOLD : ChatColor.GREEN) + "v" + updater.getLatestCoreVersion(),
+                        ChatColor.GRAY + "• Latest:     " + (coreUpdate ? ChatColor.GOLD : ChatColor.GREEN) + "v"
+                                + updater.getLatestCoreVersion(),
                         ChatColor.GRAY + "• Last Check: " + ChatColor.DARK_AQUA + lastCheck,
                         "",
-                        ChatColor.YELLOW + "Click to refresh release data."
-                )
+                        ChatColor.YELLOW + "Click to refresh release data.")
                 .glow(coreUpdate)
                 .build();
 
@@ -85,7 +87,8 @@ public class PiCoreUpdateGUI {
 
         int slotIdx = 0;
         for (ClientRegistration client : registry.getAllClients()) {
-            if (slotIdx >= slots.length) break;
+            if (slotIdx >= slots.length)
+                break;
 
             Material mat;
             CompatibilityStatus st = client.getStatus();
@@ -99,7 +102,8 @@ public class PiCoreUpdateGUI {
                 mat = Material.BOOK;
             }
 
-            String latest = client.getLatestReleaseVersion() != null ? "v" + client.getLatestReleaseVersion() : "Unknown";
+            String latest = client.getLatestReleaseVersion() != null ? "v" + client.getLatestReleaseVersion()
+                    : "Unknown";
 
             java.util.List<String> lore = new java.util.ArrayList<>();
             lore.add(ChatColor.DARK_GRAY + "Registered Module");
@@ -147,8 +151,7 @@ public class PiCoreUpdateGUI {
                         ChatColor.GRAY + "Query GitHub releases for PiCore",
                         ChatColor.GRAY + "and all registered downstream plugins.",
                         "",
-                        ChatColor.AQUA + "Click to execute scan."
-                )
+                        ChatColor.AQUA + "Click to execute scan.")
                 .build();
 
         PiButton checkBtn = PiButton.create(checkItem)
@@ -169,14 +172,14 @@ public class PiCoreUpdateGUI {
             ItemStack stageItem = ItemBuilder.of(Material.CHEST_MINECART)
                     .name(ChatColor.GREEN + "" + ChatColor.BOLD + "Stage PiCore Update")
                     .lore(
-                            ChatColor.GRAY + "Downloads " + ChatColor.YELLOW + "v" + updater.getLatestCoreVersion() + ChatColor.GRAY + " into",
+                            ChatColor.GRAY + "Downloads " + ChatColor.YELLOW + "v" + updater.getLatestCoreVersion()
+                                    + ChatColor.GRAY + " into",
                             ChatColor.DARK_AQUA + "/plugins/update/PiCore.jar" + ChatColor.GRAY + ".",
                             "",
                             ChatColor.GRAY + "Paper will automatically apply it",
                             ChatColor.GRAY + "upon the next server restart cleanly.",
                             "",
-                            ChatColor.GOLD + "Click to download & stage."
-                    )
+                            ChatColor.GOLD + "Click to download & stage.")
                     .glow(true)
                     .build();
 
@@ -187,10 +190,12 @@ public class PiCoreUpdateGUI {
                         updater.stageCoreUpdateAsync(ok -> {
                             if (p.isOnline()) {
                                 if (ok) {
-                                    p.sendMessage(ChatColor.GREEN + "✔ PiCore update staged! It will take effect on next reboot.");
+                                    p.sendMessage(ChatColor.GREEN
+                                            + "✔ PiCore update staged! It will take effect on next reboot.");
                                     p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
                                 } else {
-                                    p.sendMessage(ChatColor.RED + "✖ Failed to stage PiCore update. Check server logs.");
+                                    p.sendMessage(
+                                            ChatColor.RED + "✖ Failed to stage PiCore update. Check server logs.");
                                 }
                             }
                         });
@@ -212,19 +217,22 @@ public class PiCoreUpdateGUI {
 
     private static List<String> wrapText(String text, int maxLineLen) {
         List<String> result = new ArrayList<>();
-        if (text == null || text.isEmpty()) return result;
+        if (text == null || text.isEmpty())
+            return result;
         String[] lines = text.split("\\R");
         for (String raw : lines) {
             String[] words = raw.split(" ");
             StringBuilder sb = new StringBuilder();
             for (String w : words) {
                 if (sb.length() + w.length() + 1 > maxLineLen) {
-                    if (sb.length() > 0) result.add(sb.toString().trim());
+                    if (sb.length() > 0)
+                        result.add(sb.toString().trim());
                     sb = new StringBuilder();
                 }
                 sb.append(w).append(" ");
             }
-            if (sb.length() > 0) result.add(sb.toString().trim());
+            if (sb.length() > 0)
+                result.add(sb.toString().trim());
         }
         return result;
     }

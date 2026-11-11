@@ -8,11 +8,13 @@ import java.util.List;
 
 /**
  * Universal inventory slot layouts and grid math utilities for PiCore menus.
- * Replaces repetitive hardcoded slot arrays and border loops across declarative menus.
+ * Replaces repetitive hardcoded slot arrays and border loops across declarative
+ * menus.
  */
 public final class PiGrid {
 
-    private PiGrid() { }
+    private PiGrid() {
+    }
 
     /** Inner 28 content slots for 6-row framed menus (rows 1-4, cols 1-7). */
     public static final int[] CHEST_28 = {
@@ -45,34 +47,39 @@ public final class PiGrid {
     public static final int[] BORDER_36 = calculateBorderSlots(4);
 
     /**
-     * Checks if a slot falls on the outer perimeter border of a chest with the given row count.
+     * Checks if a slot falls on the outer perimeter border of a chest with the
+     * given row count.
      */
     public static boolean isBorder(int slot, int rows) {
-        if (slot < 0 || slot >= rows * 9) return false;
+        if (slot < 0 || slot >= rows * 9)
+            return false;
         int row = slot / 9;
         int col = slot % 9;
         return row == 0 || row == rows - 1 || col == 0 || col == 8;
     }
 
     /**
-     * Checks if a slot falls inside the framed content area (columns 1..7 and rows 1..rows-2).
+     * Checks if a slot falls inside the framed content area (columns 1..7 and rows
+     * 1..rows-2).
      */
     public static boolean isInside(int slot, int rows) {
-        if (slot < 0 || slot >= rows * 9) return false;
+        if (slot < 0 || slot >= rows * 9)
+            return false;
         int row = slot / 9;
         int col = slot % 9;
         return row >= 1 && row < rows - 1 && col >= 1 && col <= 7;
     }
 
     /**
-     * Generates slot coordinates centered horizontally in an interior row (columns 1–7).
+     * Generates slot coordinates centered horizontally in an interior row (columns
+     * 1–7).
      * <p>
      * Up to 4 items get clean gaps between them:
      * <ul>
-     *   <li>1 item  → column 4</li>
-     *   <li>2 items → columns 3, 5</li>
-     *   <li>3 items → columns 2, 4, 6</li>
-     *   <li>4 items → columns 1, 3, 5, 7</li>
+     * <li>1 item → column 4</li>
+     * <li>2 items → columns 3, 5</li>
+     * <li>3 items → columns 2, 4, 6</li>
+     * <li>4 items → columns 1, 3, 5, 7</li>
      * </ul>
      * 5 or more items sit side-by-side centered.
      *
@@ -120,7 +127,8 @@ public final class PiGrid {
      * Fills specific slots with a PiButton.
      */
     public static void fill(PiMenu menu, int[] slots, PiButton button) {
-        if (slots == null || button == null) return;
+        if (slots == null || button == null)
+            return;
         for (int slot : slots) {
             if (menu.getButton(slot) == null) {
                 menu.button(slot, button);
@@ -143,7 +151,8 @@ public final class PiGrid {
             }
         }
         int[] arr = new int[list.size()];
-        for (int i = 0; i < list.size(); i++) arr[i] = list.get(i);
+        for (int i = 0; i < list.size(); i++)
+            arr[i] = list.get(i);
         return arr;
     }
 }

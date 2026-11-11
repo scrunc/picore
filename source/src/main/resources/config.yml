@@ -9,6 +9,11 @@ modules:
   # PiAudio — locational and per-player audio streaming through Simple Voice Chat (silent without it),
   # plus the shared ffmpeg/yt-dlp locator configured under media: below.
   audio: true
+  # PiCinematic — scripted camera shots: viewers watch from a gliding camera (seeing their own body double),
+  # with titles, shake, vignette, frost and wobble effects. Used by Morphic Games' duel intros.
+  cinematic: true
+  # PiScreen — in-world map screens (item-frame walls) that plugins draw boards and brackets on.
+  screen: true
 
 # Shared media binaries for plugins that decode or download audio. Drop `ffmpeg` (and `yt-dlp`, for
 # downloads) into plugins/PiCore/bin/. On Windows the `.exe` suffix is found automatically. Both are
