@@ -1,5 +1,5 @@
 name: PiCore
-version: 1.5.0
+version: 1.5.1
 main: org.illustro.picore.PiCore
 api-version: '1.21'
 author: illustro
@@ -8,6 +8,8 @@ softdepend:
   - PlaceholderAPI
   # Optional: PiAudio streams through Simple Voice Chat when it is installed, and stays silent otherwise.
   - voicechat
+  # Optional: client versions (old clients don't get cinematic body doubles - Mannequins need 1.21.9+).
+  - ViaVersion
 # Downloaded by the server at startup: pure-Java MP3 decoder behind AudioTrack.load(*.mp3).
 libraries:
   - "com.googlecode.soundlibs:jlayer:1.0.1.4"

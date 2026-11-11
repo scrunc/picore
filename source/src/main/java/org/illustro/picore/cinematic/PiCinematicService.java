@@ -370,6 +370,25 @@ public final class PiCinematicService implements PiCinematic, Listener {
             frostUntil.put(viewer.getUniqueId(), tick + ticks);
         }
 
+        /**
+         * Mannequins only exist from 1.21.9 (protocol 773). Older clients joining through ViaBackwards get a protocol
+         * error and drop when one is sent to them (seen on 1.21.1 players at every match intro), so they never get
+         * the body double - they still see the camera shot. Without ViaVersion everyone is on the server's version.
+         */
+        private boolean knowsMannequins(Player o) {
+            int min = plugin.getConfig().getInt("cinematic.body-double-min-protocol", 773);
+            try {
+                var vv = Bukkit.getPluginManager().getPlugin("ViaVersion");
+                if (vv == null) return true;
+                Class<?> via = Class.forName("com.viaversion.viaversion.api.Via", true, vv.getClass().getClassLoader());
+                Object api = via.getMethod("getAPI").invoke(null);
+                Object v = api.getClass().getMethod("getPlayerVersion", java.util.UUID.class).invoke(api, o.getUniqueId());
+                return !(v instanceof Integer proto) || proto < 0 || proto >= min;
+            } catch (Throwable t) {
+                return true;
+            }
+        }
+
         private void spawnDouble(Player p) {
             Location at = p.getLocation();
             doubleSpots.add(at.clone());
@@ -400,8 +419,12 @@ public final class PiCinematicService implements PiCinematic, Listener {
                     for (var slot : org.bukkit.inventory.EquipmentSlot.values()) {
                         try { dst.setDropChance(slot, 0f); } catch (IllegalArgumentException ignored) { }
                     }
+                    m.setVisibleByDefault(false);           // shown below, only to clients that know Mannequins
                 });
-                if (made != null) doubles.add(made);        // kept even if not yet valid: removal must never miss it
+                if (made != null) {
+                    doubles.add(made);                      // kept even if not yet valid: removal must never miss it
+                    for (Player o : Bukkit.getOnlinePlayers()) if (knowsMannequins(o)) o.showEntity(plugin, made);
+                }
             } catch (RuntimeException ex) {
                 plugin.getLogger().warning("[PiCinematic] body double unavailable: " + ex);
             } finally {
