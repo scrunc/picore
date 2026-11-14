@@ -91,6 +91,15 @@ public final class PiCinematicService implements PiCinematic, Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onQuit(PlayerQuitEvent e) { release(e.getPlayer()); }
 
+    /** A client too old for Mannequins joining while a double stands somewhere: hide it from them (protocol error). */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(org.bukkit.event.player.PlayerJoinEvent e) {
+        for (Playback pb : running) {
+            if (pb.doubles.isEmpty() || pb.knowsMannequins(e.getPlayer())) continue;
+            for (Mannequin m : pb.doubles) e.getPlayer().hideEntity(plugin, m);
+        }
+    }
+
     /** True only while PiCinematic itself spawns a body double. */
     private boolean spawningDouble;
 
@@ -152,6 +161,7 @@ public final class PiCinematicService implements PiCinematic, Listener {
         private final Map<UUID, Integer> attachAt = new HashMap<>();   // viewer -> age to lock them on
         private final java.util.Set<UUID> attached = new java.util.HashSet<>();
         private final Map<UUID, Integer> lastLock = new HashMap<>();
+        private final java.util.Set<UUID> lastViewers = new java.util.LinkedHashSet<>();   // everyone who ever watched
         private boolean running;
         private int shakeLeft, shakeTotal;
         private double shakeStrength;
@@ -165,13 +175,14 @@ public final class PiCinematicService implements PiCinematic, Listener {
             if (shot.bodyDouble() && p.getGameMode() != GameMode.SPECTATOR) spawnDouble(p);
             saved.put(p.getUniqueId(), new Saved(p.getGameMode(), p.getLocation(), p.getAllowFlight(), p.isFlying()));
             active.put(p.getUniqueId(), this);
+            lastViewers.add(p.getUniqueId());
         }
 
         void begin() {
             Location start = shot.start();
             camera = start.getWorld().spawn(start, BlockDisplay.class, d -> {
                 d.setPersistent(false);
-                d.setTeleportDuration(2);
+                d.setTeleportDuration(4);                   // client glides each per-tick move over 4 ticks: soaks up ping jitter
                 d.setViewRange(0.1f);
             });
             running = true;
@@ -266,6 +277,16 @@ public final class PiCinematicService implements PiCinematic, Listener {
                 else dropRecord(id);
             }
             if (camera != null) camera.remove();
+            // belt and braces: a tick later nobody may still be spectating the (now removed) camera
+            List<UUID> was = new ArrayList<>(lastViewers);
+            if (plugin.isEnabled()) Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                for (UUID id : was) {
+                    Player p = Bukkit.getPlayer(id);
+                    if (p == null || p.getGameMode() != GameMode.SPECTATOR || active.containsKey(id)) continue;
+                    Entity t = p.getSpectatorTarget();
+                    if (t != null && (!t.isValid() || t.equals(camera))) p.setSpectatorTarget(null);
+                }
+            }, 2L);
             finished();
         }
 
@@ -287,7 +308,15 @@ public final class PiCinematicService implements PiCinematic, Listener {
             Saved s = saved.get(p.getUniqueId());
             dropRecord(p.getUniqueId());
             if (s == null) return;
-            if (p.getGameMode() == GameMode.SPECTATOR && p.getSpectatorTarget() != null) p.setSpectatorTarget(null);
+            if (p.getGameMode() == GameMode.SPECTATOR) {
+                // The client can still be riding the camera while the server already counts it as free (a lock the
+                // client refused, a re-lock in flight). setSpectatorTarget(null) only sends a camera packet when the
+                // SERVER's camera changes, so such a viewer kept looking through a camera that is about to vanish -
+                // frozen until they rejoined. Force the packet both ways while the camera still exists.
+                if (camera != null && camera.isValid() && camera.getWorld().equals(p.getWorld()) && !camera.equals(p.getSpectatorTarget()))
+                    p.setSpectatorTarget(camera);
+                p.setSpectatorTarget(null);
+            }
             p.setWorldBorder(null);
             p.lockFreezeTicks(false);
             p.setFreezeTicks(0);
@@ -343,6 +372,11 @@ public final class PiCinematicService implements PiCinematic, Listener {
             if (other != null) other.release(p);
             saved.put(p.getUniqueId(), new Saved(p.getGameMode(), p.getLocation(), p.getAllowFlight(), p.isFlying()));
             active.put(p.getUniqueId(), this);
+            lastViewers.add(p.getUniqueId());
+            // A late joiner must NOT be locked on at once (the "try anyway after 20 ticks" fallback is long past):
+            // their client doesn't have the camera yet and would refuse - half-attached, the shot looked broken.
+            // Wait for the track event (it moves this to age + 2), or 1 s at most.
+            attachAt.put(p.getUniqueId(), age + 20);
             p.setGameMode(GameMode.SPECTATOR);
             p.teleport(camera.getLocation());
         }
@@ -419,11 +453,13 @@ public final class PiCinematicService implements PiCinematic, Listener {
                     for (var slot : org.bukkit.inventory.EquipmentSlot.values()) {
                         try { dst.setDropChance(slot, 0f); } catch (IllegalArgumentException ignored) { }
                     }
-                    m.setVisibleByDefault(false);           // shown below, only to clients that know Mannequins
                 });
                 if (made != null) {
                     doubles.add(made);                      // kept even if not yet valid: removal must never miss it
-                    for (Player o : Bukkit.getOnlinePlayers()) if (knowsMannequins(o)) o.showEntity(plugin, made);
+                    // Visible by default, hidden only from clients that can't decode a Mannequin. (It used to be
+                    // hidden by default + showEntity per viewer - on 26.2 the reveal never reached the client, so the
+                    // camera swooped onto an empty spawn.)
+                    for (Player o : Bukkit.getOnlinePlayers()) if (!knowsMannequins(o)) o.hideEntity(plugin, made);
                 }
             } catch (RuntimeException ex) {
                 plugin.getLogger().warning("[PiCinematic] body double unavailable: " + ex);

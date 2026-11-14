@@ -1,5 +1,5 @@
 name: PiCore
-version: 1.5.1
+version: 1.5.2
 main: org.illustro.picore.PiCore
 api-version: '1.21'
 author: illustro
