@@ -130,6 +130,19 @@ public final class PiCoreBootstrap {
         File tempFile = new File(targetFile.getParentFile(), CORE_JAR_NAME + ".tmp");
         String token = resolveGitHubToken(caller.getDataFolder().getParentFile());
 
+        // 0. Newest release whose "Minecraft: <min> - <max>" line (release notes) covers THIS server's version
+        String mc = minecraftVersion();
+        String json0 = fetchString("https://api.github.com/repos/" + repo + "/releases?per_page=30", token);
+        if (json0 != null) {
+            String[] rel = pickRelease(json0, mc);
+            if (rel == null) {
+                caller.getLogger().severe("[PiCoreBootstrap] No PiCore release supports Minecraft " + mc + " - install a matching PiCore.jar by hand.");
+                return false;
+            }
+            caller.getLogger().info("[PiCoreBootstrap] Minecraft " + mc + " -> PiCore " + rel[0] + " (" + rel[3] + ")");
+            if (rel[2] != null && downloadFile(rel[2], tempFile, token)) return finalizeDownload(tempFile, targetFile);
+        }
+
         // 1. Direct release download (fastest, works when repo is public)
         String directUrl = "https://github.com/" + repo + "/releases/latest/download/" + CORE_JAR_NAME;
         if (downloadFile(directUrl, tempFile, token)) {
@@ -158,6 +171,61 @@ public final class PiCoreBootstrap {
         }
 
         return false;
+    }
+
+    /** The server's Minecraft version (e.g. 1.21.11, 26.2); null when unknown. */
+    public static String minecraftVersion() {
+        try { return Bukkit.getMinecraftVersion(); } catch (Throwable t) {
+            Matcher m = Pattern.compile("MC: ([0-9.]+)").matcher(Bukkit.getVersion());
+            return m.find() ? m.group(1) : null;
+        }
+    }
+
+    /**
+     * Picks the newest published release (GitHub /releases list JSON, newest first) that supports {@code mc}.
+     * A release declares its range with a {@code Minecraft: 1.21.11 - latest} line in its notes (the release
+     * workflow writes it from plugin.yml's {@code minecraft:} key); a release without that line fits any version.
+     * Returns {tag, body, PiCore.jar browser url (or null), range text} or null when none fits.
+     */
+    public static String[] pickRelease(String json, String mc) {
+        // each chunk after a "tag_name" holds that release's flags, assets and body (+ the next release's head)
+        String[] parts = json.split("\"tag_name\"[ ]*:[ ]*\"");
+        for (int i = 1; i < parts.length; i++) {
+            String r = parts[i];
+            String tag = r.substring(0, Math.max(0, r.indexOf('"')));
+            int a = r.indexOf("\"assets\"");
+            String head = a > 0 ? r.substring(0, a) : r;
+            if (head.matches("(?s).*\"(draft|prerelease)\"[ ]*:[ ]*true.*")) continue;
+            String body = jsonString(r, "body");
+            Matcher rm = Pattern.compile("Minecraft:[ ]*([0-9][0-9.]*)[ ]*(?:-|to)[ ]*([0-9][0-9.]*|latest|[*])", Pattern.CASE_INSENSITIVE).matcher(body);
+            String range = "any Minecraft";
+            if (rm.find()) {
+                range = "Minecraft " + rm.group(1) + " - " + rm.group(2);
+                if (mc != null) {
+                    if (compareVersions(mc, rm.group(1)) < 0) continue;
+                    String max = rm.group(2);
+                    if (Character.isDigit(max.charAt(0)) && compareVersions(mc, max) > 0) continue;
+                }
+            }
+            String url = extractAssetUrl(r, CORE_JAR_NAME);
+            if (url == null) continue;                                          // release without the jar
+            return new String[]{tag, body.replace("\\n", "\n").replace("\\r", ""), url, range};
+        }
+        return null;
+    }
+
+    /** Raw (still escaped) value of the first string field {@code key} in {@code json}; "" when absent. Char scan, not regex: bodies are long. */
+    private static String jsonString(String json, String key) {
+        Matcher m = Pattern.compile("\"" + key + "\"[ ]*:[ ]*\"").matcher(json);
+        if (!m.find()) return "";
+        int start = m.end(), i = start;
+        while (i < json.length()) {
+            char c = json.charAt(i);
+            if (c == '\\') { i += 2; continue; }
+            if (c == '"') break;
+            i++;
+        }
+        return json.substring(start, Math.min(i, json.length()));
     }
 
     private static boolean finalizeDownload(File tempFile, File targetFile) {
@@ -369,7 +437,7 @@ public final class PiCoreBootstrap {
         }
     }
 
-    private static int compareVersions(String v1, String v2) {
+    public static int compareVersions(String v1, String v2) {
         if (v1 == null) return (v2 == null) ? 0 : -1;
         if (v2 == null) return 1;
 

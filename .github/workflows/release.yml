@@ -35,6 +35,10 @@ jobs:
           {
             echo "## PiCore ${TAG}"
             echo
+            # PiCoreBootstrap reads this line to pick the newest release that fits a server's Minecraft version
+            MC="$(grep -E '^minecraft:' source/src/main/resources/plugin.yml | cut -d: -f2- | tr -d '"' | xargs)"
+            echo "Minecraft: ${MC:-1.21.11 - latest}"
+            echo
             git tag -l --format='%(contents)' "${TAG}"
             echo
             echo "### Commits"

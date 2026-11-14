@@ -1,7 +1,11 @@
 name: PiCore
-version: 1.5.2
+version: 1.5.3
 main: org.illustro.picore.PiCore
 api-version: '1.21'
+# Minecraft versions this build runs on ("<min> - <max>", max may be "latest"). The release workflow copies it
+# into the release notes as "Minecraft: ...", and PiCoreBootstrap on every server downloads the newest release
+# whose range covers that server's version. Raise min / set max when a build stops supporting a version.
+minecraft: "1.21.11 - latest"
 author: illustro
 description: Universal declarative GUI engine, dynamic ladders, and server core framework.
 softdepend:

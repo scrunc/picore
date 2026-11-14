@@ -148,15 +148,15 @@ public class PiCoreUpdater {
         if (json == null || json.trim().isEmpty())
             return;
         try {
-            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-            if (obj.has("tag_name") && !obj.get("tag_name").isJsonNull()) {
-                this.latestCoreVersion = obj.get("tag_name").getAsString().replaceFirst("^[vV]", "");
-                this.coreReleaseNotes = obj.has("body") && !obj.get("body").isJsonNull() ? obj.get("body").getAsString()
-                        : "";
-                int cmp = ClientRegistration.compareVersions(this.latestCoreVersion,
-                        plugin.getDescription().getVersion());
-                this.coreUpdateAvailable = (cmp > 0);
-            }
+            // newest release built for THIS server's Minecraft version (see PiCoreBootstrap.pickRelease)
+            String[] rel = PiCoreBootstrap.pickRelease(json, PiCoreBootstrap.minecraftVersion());
+            if (rel == null)
+                return;
+            this.latestCoreVersion = rel[0].replaceFirst("^[vV]", "");
+            this.coreReleaseNotes = rel[1];
+            int cmp = ClientRegistration.compareVersions(this.latestCoreVersion,
+                    plugin.getDescription().getVersion());
+            this.coreUpdateAvailable = (cmp > 0);
         } catch (Exception ignored) {
         }
     }
@@ -297,7 +297,7 @@ public class PiCoreUpdater {
     }
 
     private String CORE_REPO_URL() {
-        return "https://api.github.com/repos/" + getCoreRepo() + "/releases/latest";
+        return "https://api.github.com/repos/" + getCoreRepo() + "/releases?per_page=30";
     }
 
     private String fetchUrl(String urlString) {
