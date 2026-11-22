@@ -1,9 +1,9 @@
 {
   "MorphicGames": {
-    "latest": "1.19.2",
+    "latest": "1.19.3",
     "min_core_version": "1.5.0",
     "mandatory": false,
-    "notes": "Fixes missing post-match podiums for attached fighters, waits for arena chunks to load, and gives draws a lineup showcase.",
+    "notes": "Keeps pre-game player close-ups still and gives the post-match podium a slower, chat-free reveal with timed visual effects.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
