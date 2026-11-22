@@ -1,9 +1,9 @@
 {
   "MorphicGames": {
-    "latest": "1.19.1",
+    "latest": "1.19.2",
     "min_core_version": "1.5.0",
     "mandatory": false,
-    "notes": "Fixes player NPC visibility in the post-match awards hall and adds an automatic multi-angle podium cinematic with manual viewing controls.",
+    "notes": "Fixes missing post-match podiums for attached fighters, waits for arena chunks to load, and gives draws a lineup showcase.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
