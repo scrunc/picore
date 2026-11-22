@@ -1,9 +1,9 @@
 {
   "MorphicGames": {
-    "latest": "1.18.1",
+    "latest": "1.19.0",
     "min_core_version": "1.5.0",
     "mandatory": false,
-    "notes": "Adds a final Duel recap with match-wide combat totals and refreshes end-of-match chat across all games.",
+    "notes": "Adds a configurable post-match awards hall with solo podiums, team lineups, an MVP spotlight, and freely selectable viewing angles outside tournaments.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
