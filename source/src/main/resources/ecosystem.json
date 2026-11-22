@@ -1,9 +1,9 @@
 {
   "MorphicGames": {
-    "latest": "1.18.0",
+    "latest": "1.18.1",
     "min_core_version": "1.5.0",
     "mandatory": false,
-    "notes": "Adds a configurable in-match tab list header and footer with TAB integration and includes the Duel round scoreboard and damage timeout fixes.",
+    "notes": "Adds a final Duel recap with match-wide combat totals and refreshes end-of-match chat across all games.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
