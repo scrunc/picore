@@ -1,9 +1,9 @@
 {
   "MorphicGames": {
-    "latest": "1.19.3",
+    "latest": "1.20.0",
     "min_core_version": "1.5.0",
     "mandatory": false,
-    "notes": "Keeps pre-game player close-ups still and gives the post-match podium a slower, chat-free reveal with timed visual effects.",
+    "notes": "Adds shorter rematch intros, pre-game round stakes, roster-aware camera framing, a Duel winner showcase, and ranked team podiums for Bed Wars matches with three or more teams.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
