@@ -1,9 +1,9 @@
 {
   "MorphicGames": {
-    "latest": "1.20.5",
+    "latest": "1.20.6",
     "min_core_version": "1.5.0",
     "mandatory": false,
-    "notes": "Adds the Duel Workshop, personal kit presets for every duel format, and animated finisher previews.",
+    "notes": "Simplifies Duel Workshop editing with a four-row kit layout and adds randomized PiCore arena reveals.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
