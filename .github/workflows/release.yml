@@ -41,9 +41,15 @@ jobs:
             echo
             git tag -l --format='%(contents)' "${TAG}"
             echo
-            echo "### Commits"
-            if [ -n "${PREV}" ]; then RANGE="${PREV}..${TAG}"; else RANGE="${TAG}"; fi
-            git log --no-merges --pretty='- %s (%h)%n%w(0,2,2)%b' "${RANGE}"
+            echo "### Release commit"
+            git log -1 --pretty='- %s (%h)%n%w(0,2,2)%b' "${TAG}"
+            echo
+            echo "### Earlier changes"
+            if [ -n "${PREV}" ]; then
+              git log --skip=1 --pretty='- %s (%h)%n%w(0,2,2)%b' "${PREV}..${TAG}"
+            else
+              git log -n 10 --skip=1 --pretty='- %s (%h)%n%w(0,2,2)%b' "${TAG}"
+            fi
           } > RELEASE_NOTES.md
           cat RELEASE_NOTES.md
 
@@ -51,3 +57,4 @@ jobs:
         with:
           body_path: RELEASE_NOTES.md
           files: source/target/PiCore.jar
+          generate_release_notes: true

@@ -1,9 +1,9 @@
 {
   "MorphicGames": {
-    "latest": "1.20.3",
+    "latest": "1.20.4",
     "min_core_version": "1.5.0",
     "mandatory": false,
-    "notes": "Groups Penguin Bros Duel under Arcade and supports the cabinet-ready start in ArcadeCab 0.1.4.",
+    "notes": "Adds rank-unlocked finishers, shorter Duel and Bed Wars victory reveals, and the Bed Wars Last Stand finale.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
