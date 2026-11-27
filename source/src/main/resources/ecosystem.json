@@ -5,5 +5,12 @@
     "mandatory": false,
     "notes": "Simplifies Duel Workshop editing with a four-row kit layout and adds randomized PiCore arena reveals.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
+  },
+  "PixelUtilities": {
+    "latest": "0.1.2",
+    "min_core_version": "1.6.0",
+    "mandatory": false,
+    "notes": "Adds a configurable in-world showcase monitor, PiCore tours, kit previews, and a persistent join cooldown.",
+    "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
