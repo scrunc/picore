@@ -7,10 +7,10 @@
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   },
   "PixelUtilities": {
-    "latest": "0.1.3",
+    "latest": "0.1.4",
     "min_core_version": "1.6.0",
     "mandatory": false,
-    "notes": "Adds ordered PiCore starting-tour chapters with per-chapter worlds, cast, and dialogue. Skipping exits the entire tour.",
+    "notes": "Mirrors each visitor's skin and equipment on the welcome host and adds NPC editor tab suggestions.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
