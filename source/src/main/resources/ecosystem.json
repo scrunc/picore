@@ -7,10 +7,10 @@
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   },
   "PixelUtilities": {
-    "latest": "0.1.7",
+    "latest": "0.1.8",
     "min_core_version": "1.6.0",
     "mandatory": false,
-    "notes": "Adds per-viewer skin portraits with head, torso, and sleeves to the Showcase welcome HUD.",
+    "notes": "Uses fixed-width skin portrait rows to keep the Showcase logo, player card, and controls anchored.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
