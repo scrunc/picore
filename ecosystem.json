@@ -7,10 +7,10 @@
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   },
   "PixelUtilities": {
-    "latest": "0.1.4",
+    "latest": "0.1.5",
     "min_core_version": "1.6.0",
     "mandatory": false,
-    "notes": "Mirrors each visitor's skin and equipment on the welcome host and adds NPC editor tab suggestions.",
+    "notes": "Stabilizes detached showcase cameras, adds waypoint editing, textured welcome and kit panels, custom kit previews, and per-visit HUD suppression.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
