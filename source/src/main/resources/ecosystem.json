@@ -7,10 +7,10 @@
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   },
   "PixelUtilities": {
-    "latest": "0.1.6",
+    "latest": "0.1.7",
     "min_core_version": "1.6.0",
     "mandatory": false,
-    "notes": "Hides first-person hands during Showcase and exposes per-visit state for the screen-anchored BMS HUD.",
+    "notes": "Adds per-viewer skin portraits with head, torso, and sleeves to the Showcase welcome HUD.",
     "download_notice": "Download update from your customer portal or DevsDiary distribution channel."
   }
 }
